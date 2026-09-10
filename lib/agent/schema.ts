@@ -68,6 +68,20 @@ export const leadTriageSchema = z.object({
 
 export type LeadTriage = z.infer<typeof leadTriageSchema>;
 
+export const MAX_REVIEW_CHARS = 5_000;
+
+export const reviewResponseSchema = z.object({
+  sentiment: z.enum(["positive", "neutral", "negative"]),
+  urgency: z.enum(["low", "medium", "high"]).describe(
+    "high only for reviews describing a serious service failure, safety issue, or threat to leave/escalate publicly."),
+  responseDraft: z.string().min(1).describe(
+    "A short, professional reply (2-4 sentences) matching the sentiment: grateful for positive, empathetic "
+    + "and solution-oriented for negative, warm and brief for neutral. Never invent facts, discounts, or "
+    + "promises the business didn't already make. Never argue with the reviewer."),
+});
+
+export type ReviewResponse = z.infer<typeof reviewResponseSchema>;
+
 export type ExtractedCommitment = z.infer<typeof commitmentSchema> & {
   span_verified: boolean;
 };
