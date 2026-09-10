@@ -5,15 +5,15 @@ describe("navItems", () => {
   it("offers the destinations in a fixed order", () => {
     expect(navItems("/queue").map((i) => i.href))
       .toEqual(["/queue", "/tasks", "/dashboard", "/operations", "/settings",
-        "/retainers", "/documents", "/scheduling", "/billing", "/scope", "/reviews", "/leads"]);
+        "/retainers", "/documents", "/scheduling", "/billing", "/scope", "/reviews", "/leads", "/reports"]);
     expect(navItems("/queue").map((i) => i.label))
       .toEqual(["Queue", "Tasks", "Dashboard", "Operations", "Settings",
-        "Retainers", "Documents", "Scheduling", "Billing", "Scope of work", "Reviews & referrals", "Leads"]);
+        "Retainers", "Documents", "Scheduling", "Billing", "Scope of work", "Reviews & referrals", "Leads", "Reports"]);
   });
 
   it("marks exactly one destination current", () => {
     for (const path of ["/queue", "/tasks", "/dashboard", "/operations", "/settings",
-      "/retainers", "/documents", "/scheduling", "/billing", "/scope", "/reviews", "/leads"]) {
+      "/retainers", "/documents", "/scheduling", "/billing", "/scope", "/reviews", "/leads", "/reports"]) {
       const current = navItems(path).filter((i) => i.isCurrent);
       expect(current).toHaveLength(1);
       expect(current[0].href).toBe(path);
@@ -21,7 +21,7 @@ describe("navItems", () => {
   });
 
   it("keeps the parent current on a nested route", () => {
-    for (const path of ["/queue", "/retainers", "/documents", "/scheduling", "/billing", "/scope", "/reviews", "/leads"]) {
+    for (const path of ["/queue", "/retainers", "/documents", "/scheduling", "/billing", "/scope", "/reviews", "/leads", "/reports"]) {
       const items = navItems(`${path}/00000000-0000-0000-0000-0000000000f1`);
       expect(items.find((i) => i.href === path)!.isCurrent).toBe(true);
       expect(items.filter((i) => i.isCurrent)).toHaveLength(1);
