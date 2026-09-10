@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentOrgId } from "@/lib/db/queries";
 import { getServerClient } from "@/lib/db/server";
 import { ReviewRequestList, type ReviewRequestListProps } from "@/components/reviews/ReviewRequestList";
+import { ReceivedReviewPanel, type ReceivedReviewPanelProps } from "@/components/reviews/ReceivedReviewPanel";
 import { PageHeader, EmptyState, buttonStyle, pageStyle, columnStyle } from "@/components/ui/primitives";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +21,16 @@ export default async function ReviewsPage() {
     </main>);
 
   const db = await getServerClient();
-  const { data: drafts, error } = await db.from("client_message_draft")
-    .select("id,client_id,subject,body")
-    .eq("org_id", orgId).eq("kind", "review_request").is("provider_draft_id", null)
-    .order("created_at", { ascending: false });
+  const [draftResult, reviewResult] = await Promise.all([
+    db.from("client_message_draft").select("id,client_id,subject,body")
+      .eq("org_id", orgId).eq("kind", "review_request").is("provider_draft_id", null)
+      .order("created_at", { ascending: false }),
+    db.from("received_review").select("*").eq("org_id", orgId)
+      .order("created_at", { ascending: false }),
+  ]);
+  const { data: drafts, error } = draftResult;
   if (error) throw error;
+  if (reviewResult.error) throw reviewResult.error;
 
   const clientIds = [...new Set((drafts ?? []).map((d) => d.client_id as string))];
   const { data: clients } = clientIds.length > 0
@@ -36,11 +42,12 @@ export default async function ReviewsPage() {
     <main style={pageStyle}>
       <div style={columnStyle}>
         <PageHeader title="Reviews & referrals"
-          lede="Drafted automatically after a task is delivered or an invoice is paid — nothing to configure." />
+          lede="Drafted automatically after a task is delivered or an invoice is paid — and paste in reviews you receive to get a reply drafted." />
         <ReviewRequestList
           drafts={(drafts ?? []) as ReviewRequestListProps["drafts"]}
           clientNames={clientNames}
         />
+        <ReceivedReviewPanel reviews={(reviewResult.data ?? []) as ReceivedReviewPanelProps["reviews"]} />
       </div>
     </main>
   );

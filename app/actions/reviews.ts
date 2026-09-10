@@ -2,6 +2,8 @@
 import { revalidatePath } from "next/cache";
 import { getServerClient } from "@/lib/db/server";
 import { getServiceClient } from "@/lib/db/service";
+import { getCurrentOrgId } from "@/lib/db/queries";
+import { respondToReview, setReviewStatus } from "@/lib/reviews/respond";
 import { pushClientMessageToGmail } from "@/lib/gmail/push-client-message";
 import { GmailInvalidGrantError, GmailUnauthorizedError } from "@/lib/gmail/client";
 import { getAccessToken, invalidateCachedToken, DataSourceUnavailable } from "@/lib/google/tokens";
@@ -14,6 +16,28 @@ async function session() {
   const { data } = await db.auth.getUser();
   if (!data.user) throw new Error("Sign in to manage review requests.");
   return { db, userId: data.user.id };
+}
+
+export async function submitReview(args: {
+  rawReview: string; clientId?: string | null; source?: string | null;
+  reviewerName?: string | null; rating?: number | null;
+}) {
+  const { db } = await session();
+  const orgId = await getCurrentOrgId();
+  if (!orgId) throw new Error("Sign in to draft a review response.");
+  const source = args.source === "google" || args.source === "yelp"
+    || args.source === "facebook" || args.source === "other" ? args.source : null;
+  const result = await respondToReview(db, { ...args, orgId, source });
+  revalidatePath("/reviews");
+  return result;
+}
+
+export async function markReviewStatus(reviewId: string, next: "responded" | "dismissed") {
+  const { db } = await session();
+  const orgId = await getCurrentOrgId();
+  if (!orgId) throw new Error("Sign in to update a review.");
+  await setReviewStatus(db, { orgId, reviewId, next });
+  revalidatePath("/reviews");
 }
 
 /** Same shape as pushRetainerDraft/pushDocumentDraft — org from the draft row via RLS. */
