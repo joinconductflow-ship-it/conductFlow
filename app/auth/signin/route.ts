@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { SIGN_IN_SCOPES } from "@/lib/google/scopes";
 import { requireEnv } from "@/lib/env";
+import { siteOrigin } from "@/lib/http/site-origin";
 
 export const dynamic = "force-dynamic";
-
-async function siteOrigin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
 
 /**
  * Starts Google sign-in. This is a Route Handler rather than a Server Action because

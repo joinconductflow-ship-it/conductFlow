@@ -43,6 +43,14 @@ const LIMITS = [
   },
 ];
 
+/**
+ * Rendered per request, for the CSP nonce. See the note in privacy/page.tsx: prerendered
+ * HTML carries a nonce baked at build time, the header carries one minted per request, and
+ * a mismatch blocks every inline script Next emits. Do not add Cache-Control to this route
+ * without removing the nonce from the policy first.
+ */
+export const dynamic = "force-dynamic";
+
 const shell: React.CSSProperties = {
   maxWidth: 960, marginInline: "auto", paddingInline: "var(--space-5)",
 };
@@ -300,8 +308,12 @@ export default function Home() {
           justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap",
           alignItems: "baseline" }}>
           <span style={{ fontWeight: 600, fontSize: "var(--text-base)" }}>ConductFlow</span>
-          <span className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)" }}>
-            for tutors, consultants, coaches and agencies of two to twenty
+          <span style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap",
+            alignItems: "baseline" }}>
+            <Link href="/privacy" style={{ fontSize: "var(--text-xs)" }}>Privacy</Link>
+            <span className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)" }}>
+              for tutors, consultants, coaches and agencies of two to twenty
+            </span>
           </span>
         </div>
       </footer>

@@ -1,6 +1,6 @@
 "use server";
 import { randomBytes } from "node:crypto";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getServerClient } from "@/lib/db/server";
@@ -9,13 +9,7 @@ import { getCurrentOrgId } from "@/lib/db/queries";
 import { logAudit } from "@/lib/audit/log";
 import { CAPABILITIES, isCapability } from "@/lib/google/scopes";
 import { CONNECT_STATE_COOKIE } from "@/lib/google/connect-state";
-
-async function siteOrigin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
+import { siteOrigin } from "@/lib/http/site-origin";
 
 /**
  * Sends the owner to Google for one capability's scopes. Consent is asked for at the
