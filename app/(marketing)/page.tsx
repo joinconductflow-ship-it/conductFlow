@@ -76,6 +76,9 @@ function Rail({ label, children }: { label: string; children: React.ReactNode })
 export default function Home() {
   return (
     <>
+      {/* Same affordance the signed-in app gives a keyboard user, for the same reason. */}
+      <a href="#main" className="skip-link">Skip to content</a>
+
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div style={{ ...shell, display: "flex", alignItems: "center",
           justifyContent: "space-between", minHeight: 56, gap: "var(--space-4)" }}>
@@ -86,7 +89,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main>
+      <main id="main" tabIndex={-1} style={{ outline: "none" }}>
         {/* Copy left, evidence right, and the evidence dropped half a step so the two
             columns don't read as a matched pair. */}
         <section style={{ ...shell, display: "flex", flexWrap: "wrap",

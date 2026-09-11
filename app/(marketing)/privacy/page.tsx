@@ -158,6 +158,8 @@ export default function Privacy() {
 
   return (
     <>
+      <a href="#main" className="skip-link">Skip to content</a>
+
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div style={{ ...shell, display: "flex", alignItems: "center",
           justifyContent: "space-between", minHeight: 56, gap: "var(--space-4)" }}>
@@ -169,7 +171,7 @@ export default function Privacy() {
         </div>
       </header>
 
-      <main>
+      <main id="main" tabIndex={-1} style={{ outline: "none" }}>
         <section style={{ ...shell, paddingTop: "var(--space-7)",
           paddingBottom: "var(--space-6)" }}>
           <SectionLabel>Privacy</SectionLabel>

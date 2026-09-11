@@ -1,0 +1,40 @@
+import type { MetadataRoute } from "next";
+
+const SITE = process.env.SITE_ORIGIN?.trim() || "https://conductflow.app";
+
+/**
+ * Two public pages, and everything else behind sign-in.
+ *
+ * The disallow list is not a security control — a crawler that ignores robots.txt reads it
+ * as a map of where to look, and these routes already refuse an unauthenticated request.
+ * It is here so that a URL which leaks into a referrer header or a pasted link does not
+ * end up indexed, and so the auth and cron endpoints are never crawled at all.
+ */
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: {
+      userAgent: "*",
+      allow: ["/", "/privacy"],
+      disallow: [
+        "/api/",
+        "/auth/",
+        "/onboarding",
+        "/queue",
+        "/tasks",
+        "/dashboard",
+        "/settings",
+        "/billing",
+        "/documents",
+        "/ingest",
+        "/leads",
+        "/operations",
+        "/reports",
+        "/retainers",
+        "/reviews",
+        "/scheduling",
+        "/scope",
+      ],
+    },
+    sitemap: `${SITE}/sitemap.xml`,
+  };
+}
