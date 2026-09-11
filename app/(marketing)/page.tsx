@@ -43,6 +43,14 @@ const LIMITS = [
   },
 ];
 
+/**
+ * Rendered per request, for the CSP nonce. See the note in privacy/page.tsx: prerendered
+ * HTML carries a nonce baked at build time, the header carries one minted per request, and
+ * a mismatch blocks every inline script Next emits. Do not add Cache-Control to this route
+ * without removing the nonce from the policy first.
+ */
+export const dynamic = "force-dynamic";
+
 const shell: React.CSSProperties = {
   maxWidth: 960, marginInline: "auto", paddingInline: "var(--space-5)",
 };
@@ -68,6 +76,9 @@ function Rail({ label, children }: { label: string; children: React.ReactNode })
 export default function Home() {
   return (
     <>
+      {/* Same affordance the signed-in app gives a keyboard user, for the same reason. */}
+      <a href="#main" className="skip-link">Skip to content</a>
+
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div style={{ ...shell, display: "flex", alignItems: "center",
           justifyContent: "space-between", minHeight: 56, gap: "var(--space-4)" }}>
@@ -78,7 +89,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main>
+      <main id="main" tabIndex={-1} style={{ outline: "none" }}>
         {/* Copy left, evidence right, and the evidence dropped half a step so the two
             columns don't read as a matched pair. */}
         <section style={{ ...shell, display: "flex", flexWrap: "wrap",
@@ -300,8 +311,12 @@ export default function Home() {
           justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap",
           alignItems: "baseline" }}>
           <span style={{ fontWeight: 600, fontSize: "var(--text-base)" }}>ConductFlow</span>
-          <span className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)" }}>
-            for tutors, consultants, coaches and agencies of two to twenty
+          <span style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap",
+            alignItems: "baseline" }}>
+            <Link href="/privacy" style={{ fontSize: "var(--text-xs)" }}>Privacy</Link>
+            <span className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)" }}>
+              for tutors, consultants, coaches and agencies of two to twenty
+            </span>
           </span>
         </div>
       </footer>

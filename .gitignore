@@ -45,3 +45,6 @@ next-env.d.ts
 .env*
 
 prod-kek-backup.txt
+
+# gstack working files (terminal tokens, ports, reports) — never committed
+.gstack/
