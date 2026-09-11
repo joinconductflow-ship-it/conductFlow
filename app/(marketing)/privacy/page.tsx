@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Card, SectionLabel } from "@/components/ui/primitives";
 import { HARD_PROHIBITED } from "@/lib/agent/blueprint";
+import { LEGAL_PENDING } from "@/lib/legal/pending";
 
 /**
  * The privacy policy, written from what the code does rather than from a template.
@@ -9,11 +10,14 @@ import { HARD_PROHIBITED } from "@/lib/agent/blueprint";
  * are worth checking name the file that enforces them — a policy a reader can verify is
  * worth more than one that merely sounds thorough.
  *
- * Four things here are business decisions, not engineering ones, and they are collected
- * in PENDING below rather than scattered through the prose. Fill them in before this
- * page is linked from anywhere a customer can reach. They are deliberately conspicuous:
- * a policy that quietly ships with an invented retention period or a fictional postal
- * address is worse than one that admits what has not been decided.
+ * The remaining unresolved facts — legal entity, governing jurisdiction, effective date,
+ * and retention window — are business or engineering decisions this codebase cannot make,
+ * and live in the shared `LEGAL_PENDING` constant (`lib/legal/pending.ts`, imported here as
+ * `PENDING`) rather than scattered through the prose, so Terms and Privacy never drift out
+ * of sync. Fill them in before this page is linked from anywhere a customer can reach —
+ * they are deliberately conspicuous: a policy that quietly ships with an invented
+ * retention period or a fictional entity name is worse than one that admits what has not
+ * been decided.
  */
 
 export const metadata: Metadata = {
@@ -34,22 +38,7 @@ export const metadata: Metadata = {
  */
 export const dynamic = "force-dynamic";
 
-const PENDING = {
-  /** The legal entity that is party to the contract with the customer. */
-  entity: "[LEGAL ENTITY NAME]",
-  /** Where privacy requests actually land. A real, monitored inbox. */
-  contact: "[PRIVACY CONTACT EMAIL]",
-  /** Governing jurisdiction, which decides which statutory rights apply. */
-  jurisdiction: "[JURISDICTION]",
-  /** The date this text last changed. */
-  updated: "[EFFECTIVE DATE]",
-  /**
-   * How long a deleted org's rows survive before they are actually gone. There is no
-   * retention job in the codebase yet, so any number written here today would be a
-   * promise nothing keeps.
-   */
-  retention: "[RETENTION WINDOW — no automated deletion job exists yet]",
-};
+const PENDING = LEGAL_PENDING;
 
 const shell: React.CSSProperties = {
   maxWidth: 960, marginInline: "auto", paddingInline: "var(--space-5)",
@@ -375,8 +364,12 @@ export default function Privacy() {
             color: "var(--text)", textDecoration: "none" }}>
             ConductFlow
           </Link>
-          <span className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)" }}>
-            privacy
+          <span style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap",
+            alignItems: "baseline" }}>
+            <Link href="/terms" style={{ fontSize: "var(--text-xs)" }}>Terms</Link>
+            <span className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)" }}>
+              privacy
+            </span>
           </span>
         </div>
       </footer>

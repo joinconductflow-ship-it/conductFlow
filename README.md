@@ -78,9 +78,13 @@ request-half, leads list, reports, payment risk scanning), and the daily cron sw
    added as test users (Google Cloud Console → `conductflow-auth` project → **Google Auth
    Platform → Audience**) can sign in with the restricted Gmail scope or connect
    Gmail/Drive/Calendar at all — everyone else gets `access_denied`. Right now only
-   `sai.chowdarapu09@gmail.com` is allowlisted. Add real pilot users there one at a time,
-   or submit for Google verification before onboarding anyone outside the team (also
-   required past ~100 users regardless, see the existing note near the bottom of this file).
+   `sai.chowdarapu09@gmail.com` is allowlisted. Before onboarding anyone outside the team,
+   this needs Google's restricted-scope verification (published estimate: ~6 weeks for a
+   complete submission) plus an annual third-party CASA security assessment once verified
+   (cost varies by assessor — get quotes, budget it as a recurring line item, not a
+   one-time fee). This is also required regardless past ~100 total users. Do not open
+   public Gmail access before this path is done — that's a deliberate current gate, not an
+   oversight.
 3. **No UI to configure a `billing_rate`.** The table (hourly rate per client, or one
    org-wide default) has no settings page anywhere — it's currently set by hand via SQL.
    `Draft invoice` fails with "no billing rate configured for this client or organization"
@@ -89,6 +93,30 @@ request-half, leads list, reports, payment risk scanning), and the daily cron sw
    real browser.** It builds cleanly and passes every static check, but nobody has done an
    actual load-unpacked + live tab-capture pass yet — see the warning banner at the top of
    `extension/README.md` for exactly what to verify, and update that banner once it's done.
+5. **Legal documents are placeholders, not a reviewed contract.** `/privacy` and `/terms`
+   exist and describe what the code actually does (see `lib/legal/pending.ts` for the
+   shared unresolved values: legal entity, governing jurisdiction, effective date). Per
+   research done 2026-09-11 (Perplexity, 30 sources) into what a solo founder needs before
+   real signups:
+   - **No business entity is formed yet** — `lib/legal/pending.ts` names the responsible
+     party as pending. Until an LLC/corp exists, the founder is personally the contracting
+     party; form an entity before real money or real client data from strangers flows
+     through this product.
+   - **No lawyer has reviewed `/terms` or `/privacy`.** Both pages say so plainly. Get a
+     review before linking either from anywhere a non-test customer can reach — this
+     product handles client communications data and acts on users' behalf via Gmail/Drive/
+     Calendar, which raises the bar above a typical SaaS template.
+   - **No Data Processing Addendum (DPA) exists.** B2B customers with their own privacy
+     obligations will likely need one before they can use this product lawfully themselves.
+   - **No account-deletion job exists.** The privacy policy's retention section says so
+     explicitly — build the actual deletion mechanism before promising a retention window.
+   - **No incident-response/breach-notification plan exists.** Every US state has a breach
+     notification law regardless of company size; have a plan — data map, decision owner,
+     notification procedure — before it's needed, not after.
+   - CCPA/CPRA and most state comprehensive privacy laws have revenue/volume thresholds
+     (commonly $25M revenue or 100k+ consumers/households) this product likely does not
+     meet yet, but that is not a blanket exemption from security, breach-notice, or
+     contractual obligations to B2B customers — revisit as the user base grows.
 
 ## Prerequisites
 

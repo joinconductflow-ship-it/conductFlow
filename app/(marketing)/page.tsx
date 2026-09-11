@@ -314,6 +314,7 @@ export default function Home() {
           <span style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap",
             alignItems: "baseline" }}>
             <Link href="/privacy" style={{ fontSize: "var(--text-xs)" }}>Privacy</Link>
+            <Link href="/terms" style={{ fontSize: "var(--text-xs)" }}>Terms</Link>
             <span className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)" }}>
               for tutors, consultants, coaches and agencies of two to twenty
             </span>
