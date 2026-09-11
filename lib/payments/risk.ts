@@ -117,7 +117,7 @@ async function fetchInputs(db: SupabaseClient, args: ScanPaymentRisksArgs, now: 
   });
   const overdueTasks = await pages<Task>((from, to) => {
     let query = db.from("task").select("id,org_id,commitment_id,title,due")
-      .eq("done", false).not("due", "is", null).lt("due", now.toISOString());
+      .neq("status", "done").not("due", "is", null).lt("due", now.toISOString());
     if (args.orgId) query = query.eq("org_id", args.orgId);
     return query.order("id", { ascending: true }).range(from, to);
   });

@@ -34,6 +34,9 @@ function fakeDb(tables: Tables): SupabaseClient {
           eq(column: string, value: unknown) {
             return chain([...matchers, (row) => row[column] === value], patch, sort, slice);
           },
+          neq(column: string, value: unknown) {
+            return chain([...matchers, (row) => row[column] !== value], patch, sort, slice);
+          },
           is(column: string, value: unknown) {
             return chain([...matchers, (row) => (row[column] ?? null) === value], patch, sort, slice);
           },
@@ -135,9 +138,9 @@ describe("scanPaymentRisks", () => {
     tables.commitment.push({ id: "commitment-a", org_id: ORG, client_id: CLIENT });
     tables.task.push(
       { id: "task-open", org_id: ORG, commitment_id: "commitment-a", title: "Ship final files",
-        due: "2026-09-08T12:00:00.000Z", done: false },
+        due: "2026-09-08T12:00:00.000Z", status: "open" },
       { id: "task-done", org_id: ORG, commitment_id: "commitment-a", title: "Already delivered",
-        due: "2026-09-08T12:00:00.000Z", done: true },
+        due: "2026-09-08T12:00:00.000Z", status: "done" },
     );
     tables.invoice.push({ id: "invoice-a", org_id: ORG, client_id: CLIENT,
       status: "overdue", due_date: "2026-09-09" });
