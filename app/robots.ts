@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { publicOrigin } from "@/lib/http/public-origin";
 
-const SITE = process.env.SITE_ORIGIN?.trim() || "https://conductflow.app";
+const SITE = publicOrigin();
 
 /**
  * Two public pages, and everything else behind sign-in.
