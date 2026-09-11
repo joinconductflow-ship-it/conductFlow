@@ -20,6 +20,7 @@ const DESTINATIONS: { href: string; label: string }[] = [
   { href: "/documents", label: "Documents" },
   { href: "/scheduling", label: "Scheduling" },
   { href: "/billing", label: "Billing" },
+  { href: "/risk", label: "Payment Risk" },
   { href: "/scope", label: "Scope of work" },
   { href: "/reviews", label: "Reviews & referrals" },
   { href: "/leads", label: "Leads" },

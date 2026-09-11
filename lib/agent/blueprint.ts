@@ -29,6 +29,7 @@ export const EDITABLE_ACTIONS = [
   "draft_change_order",
   "draft_invoice",
   "draft_collections_reminder",
+  "draft_payment_risk_checkin",
   "draft_review_request",
   "draft_review_response",
   "draft_lead_reply",
@@ -53,10 +54,10 @@ export interface BlueprintRow {
 
 /** What a new org starts with: draft freely, ask before anything else. */
 export const DEFAULT_BLUEPRINT: BlueprintRow = {
-  allowed_sources: ["transcript", "client_contact", "template", "scope_of_work", "lead_inquiry", "review_text"],
+  allowed_sources: ["transcript", "client_contact", "template", "scope_of_work", "lead_inquiry", "review_text", "invoice"],
   permitted_actions: ["draft_recap", "draft_task_list", "draft_follow_up",
     "draft_retainer_renewal", "draft_document_reminder", "draft_reschedule_offer", "draft_change_order",
-    "draft_invoice", "draft_collections_reminder", "draft_review_request", "draft_review_response",
+    "draft_invoice", "draft_collections_reminder", "draft_payment_risk_checkin", "draft_review_request", "draft_review_response",
     "draft_lead_reply"],
   required_approvals: ["push_email_draft", "edit_crm", "create_internal_task",
     "propose_recurring_task"],
