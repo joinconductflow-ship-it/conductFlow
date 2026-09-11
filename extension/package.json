@@ -1,0 +1,18 @@
+{
+  "name": "conductflow-meeting-transcript-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A zero-cost, local-only Chrome tab audio transcription proof of concept.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.1",
+    "esbuild": "^0.27.0",
+    "typescript": "^5.9.2"
+  }
+}
