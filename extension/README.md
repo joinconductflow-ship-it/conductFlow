@@ -1,5 +1,11 @@
 # ConductFlow Meeting Transcript — Phase 1
 
+> **⚠️ Status: NOT YET TESTED IN A REAL BROWSER.** This extension has been verified by build/typecheck/unit
+> tests only (see each PR's test plan). Nobody has actually loaded it as an unpacked extension, captured a
+> real tab, or confirmed live transcription, audio passthrough, or the meeting-assistant suggestions work
+> end to end. Treat everything below as the intended behavior, not a confirmed one, until someone runs
+> through "Manual-test focus" below and this notice is removed or updated.
+
 A Manifest V3 Chrome extension that captures the active browser tab's audio, keeps that audio audible, and transcribes fixed 15-second chunks locally with `Xenova/whisper-tiny.en` through `@huggingface/transformers`.
 
 No audio or transcript is sent to a transcription API. There are no API keys and no per-use charges. On first use, the model files are downloaded from the Hugging Face Hub and cached by the browser for later use. The first download can take a while; the popup shows model-download progress when the library reports it.
