@@ -1,10 +1,14 @@
 // @ts-nocheck -- This entry point is compiled by the independent extension build, not the root Next.js project.
 import { env, pipeline } from "@huggingface/transformers";
 
+declare const MEETING_ASSISTANT_URL: string;
+declare const MEETING_ASSISTANT_SECRET: string;
+
 const MODEL_ID = "Xenova/whisper-tiny.en";
 const TARGET_SAMPLE_RATE = 16_000;
 const CHUNK_SECONDS = 15;
 const MINIMUM_FINAL_CHUNK_SECONDS = 1;
+const MAX_TRACKED_SUGGESTIONS = 20;
 
 // MV3 forbids remotely hosted executable code. The build copies ONNX Runtime's
 // WASM binaries and factory modules into the extension and points the backend at them.
@@ -28,11 +32,44 @@ let inputSampleRate = 0;
 let workChain: Promise<void> = Promise.resolve();
 let stoppingPromise: Promise<void> | null = null;
 let captureGeneration = 0;
+let previousSuggestions: string[] = [];
 
 function sendToBackground(message: object): void {
   void chrome.runtime.sendMessage({ target: "background", ...message }).catch(() => {
     // The service worker can restart; the next message will wake it again.
   });
+}
+
+async function requestAssistantSuggestions(recentTranscript: string, generation: number): Promise<void> {
+  try {
+    const response = await fetch(MEETING_ASSISTANT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-assistant-secret": MEETING_ASSISTANT_SECRET,
+      },
+      body: JSON.stringify({ recentTranscript, previousSuggestions }),
+    });
+    if (!response.ok) throw new Error(`Meeting assistant returned HTTP ${response.status}.`);
+
+    const payload = await response.json() as unknown;
+    if (!payload || typeof payload !== "object" || !("suggestions" in payload)
+      || !Array.isArray(payload.suggestions)) {
+      throw new Error("Meeting assistant returned an invalid response.");
+    }
+    if (generation !== captureGeneration) return;
+
+    for (const value of payload.suggestions) {
+      if (typeof value !== "string") continue;
+      const suggestion = value.trim();
+      if (!suggestion || previousSuggestions.includes(suggestion)) continue;
+      previousSuggestions.push(suggestion);
+      previousSuggestions = previousSuggestions.slice(-MAX_TRACKED_SUGGESTIONS);
+      sendToBackground({ type: "ASSISTANT_SUGGESTION", text: suggestion });
+    }
+  } catch (error) {
+    console.warn("Meeting assistant suggestion request failed:", error);
+  }
 }
 
 function modelProgress(update: Record<string, unknown>): void {
@@ -111,7 +148,13 @@ function enqueueChunk(samples: Float32Array, sourceRate: number, generation: num
     const text = Array.isArray(result)
       ? result.map((entry) => ("text" in entry ? String(entry.text) : "")).join(" ")
       : String((result as { text?: string }).text ?? "");
-    if (text.trim()) sendToBackground({ type: "TRANSCRIPT_CHUNK", text: text.trim() });
+    if (text.trim()) {
+      const transcriptChunk = text.trim();
+      sendToBackground({ type: "TRANSCRIPT_CHUNK", text: transcriptChunk });
+      if (MEETING_ASSISTANT_SECRET) {
+        void requestAssistantSuggestions(transcriptChunk, generation);
+      }
+    }
   }).catch((error) => {
     sendToBackground({
       type: "OFFSCREEN_ERROR",
@@ -148,6 +191,7 @@ async function startCapture(streamId: string): Promise<void> {
   inputBuffers = [];
   bufferedSampleCount = 0;
   workChain = Promise.resolve();
+  previousSuggestions = [];
 
   const constraints = {
     audio: {

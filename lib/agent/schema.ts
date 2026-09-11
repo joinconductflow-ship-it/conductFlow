@@ -82,6 +82,19 @@ export const reviewResponseSchema = z.object({
 
 export type ReviewResponse = z.infer<typeof reviewResponseSchema>;
 
+export const MAX_TRANSCRIPT_EXCERPT_CHARS = 4_000;
+export const MAX_PREVIOUS_SUGGESTIONS = 20;
+
+export const meetingAssistantSchema = z.object({
+  suggestions: z.array(z.string().min(1).max(200)).max(3).describe(
+    "0-3 short, concrete things worth asking or clarifying right now, based only on the most recent "
+    + "excerpt. Only include something genuinely actionable and non-obvious (e.g. a payment method, a "
+    + "missing date, an unconfirmed quantity or scope). Never repeat anything already listed as a prior "
+    + "suggestion. Empty array if nothing is worth flagging — most excerpts should return nothing."),
+});
+
+export type MeetingAssistantSuggestions = z.infer<typeof meetingAssistantSchema>;
+
 export type ExtractedCommitment = z.infer<typeof commitmentSchema> & {
   span_verified: boolean;
 };

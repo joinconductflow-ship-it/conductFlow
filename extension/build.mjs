@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(root, "dist");
+const meetingAssistantUrl = process.env.MEETING_ASSISTANT_URL
+  ?? "https://conductflow-woad.vercel.app/api/meeting-assistant";
+const meetingAssistantSecret = process.env.MEETING_ASSISTANT_SECRET ?? "";
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
@@ -25,6 +28,8 @@ await build({
   legalComments: "none",
   define: {
     "process.env.NODE_ENV": '"production"',
+    MEETING_ASSISTANT_URL: JSON.stringify(meetingAssistantUrl),
+    MEETING_ASSISTANT_SECRET: JSON.stringify(meetingAssistantSecret),
   },
 });
 

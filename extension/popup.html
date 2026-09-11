@@ -87,6 +87,32 @@
         font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
 
+      #suggestions {
+        margin-bottom: 12px;
+        border: 1px solid #ccd3df;
+        border-radius: 8px;
+        padding: 10px;
+        background: white;
+      }
+
+      #suggestions h2 {
+        margin: 0 0 6px;
+        font-size: 14px;
+      }
+
+      #suggestion-list {
+        margin: 0;
+        padding-left: 20px;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      #suggestion-empty {
+        margin: 0;
+        color: #526078;
+        font-size: 12px;
+      }
+
       #copy {
         width: 100%;
         margin-top: 8px;
@@ -102,6 +128,11 @@
     <div class="controls">
       <button id="start" type="button">Start capturing this tab</button>
       <button id="stop" type="button" disabled>Stop</button>
+    </div>
+    <div id="suggestions" aria-live="polite">
+      <h2>Things to ask</h2>
+      <ul id="suggestion-list" hidden></ul>
+      <p id="suggestion-empty">No suggestions yet.</p>
     </div>
     <textarea id="transcript" readonly aria-label="Running transcript" placeholder="Transcript chunks will appear here…"></textarea>
     <button id="copy" type="button" disabled>Copy transcript</button>

@@ -6,6 +6,7 @@ type CaptureStatus = "idle" | "starting" | "loading_model" | "capturing" | "stop
 interface CaptureState {
   status: CaptureStatus;
   transcript: string;
+  suggestions: string[];
   message: string;
   progress?: number;
   tabId?: number;
@@ -16,6 +17,7 @@ const OFFSCREEN_PATH = "offscreen.html";
 const INITIAL_STATE: CaptureState = {
   status: "idle",
   transcript: "",
+  suggestions: [],
   message: "Ready.",
 };
 
@@ -24,7 +26,9 @@ let operation: Promise<unknown> = Promise.resolve();
 
 async function readState(): Promise<CaptureState> {
   const stored = await chrome.storage.local.get(STORAGE_KEY);
-  return (stored[STORAGE_KEY] as CaptureState | undefined) ?? INITIAL_STATE;
+  const state = stored[STORAGE_KEY] as CaptureState | undefined;
+  if (!state) return INITIAL_STATE;
+  return { ...state, suggestions: Array.isArray(state.suggestions) ? state.suggestions : [] };
 }
 
 async function publishState(next: CaptureState): Promise<CaptureState> {
@@ -71,7 +75,10 @@ async function startCapture(tabId: number): Promise<CaptureState> {
     throw new Error("A tab capture is already in progress.");
   }
 
-  await publishState({ status: "starting", transcript: "", message: "Preparing the audio processor…", tabId });
+  await publishState({
+    status: "starting", transcript: "", suggestions: [],
+    message: "Preparing the audio processor…", tabId,
+  });
   try {
     await ensureOffscreenDocument();
 
@@ -91,12 +98,13 @@ async function startCapture(tabId: number): Promise<CaptureState> {
     return publishState({
       status: "loading_model",
       transcript: "",
+      suggestions: [],
       message: "Capturing audio; loading the local Whisper model…",
       tabId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await publishState({ status: "error", transcript: "", message });
+    await publishState({ status: "error", transcript: "", suggestions: [], message });
     throw error;
   }
 }
@@ -117,11 +125,17 @@ async function stopCapture(): Promise<CaptureState> {
       if (!response?.ok) throw new Error(response?.error ?? "The audio processor did not stop cleanly.");
     }
     const latest = await readState();
-    return publishState({ status: "idle", transcript: latest.transcript, message: "Stopped." });
+    return publishState({
+      status: "idle", transcript: latest.transcript,
+      suggestions: latest.suggestions, message: "Stopped.",
+    });
   } catch (error) {
     const latest = await readState();
     const message = error instanceof Error ? error.message : String(error);
-    return publishState({ status: "error", transcript: latest.transcript, message });
+    return publishState({
+      status: "error", transcript: latest.transcript,
+      suggestions: latest.suggestions, message,
+    });
   }
 }
 
@@ -154,8 +168,18 @@ async function handleOffscreenMessage(message: Record<string, unknown>): Promise
     return;
   }
 
+  if (message.type === "ASSISTANT_SUGGESTION") {
+    const text = typeof message.text === "string" ? message.text.trim() : "";
+    if (!text || current.suggestions.includes(text)) return;
+    await publishState({ ...current, suggestions: [...current.suggestions, text] });
+    return;
+  }
+
   if (message.type === "CAPTURE_ENDED") {
-    await publishState({ status: "idle", transcript: current.transcript, message: "The captured tab stopped sending audio." });
+    await publishState({
+      status: "idle", transcript: current.transcript, suggestions: current.suggestions,
+      message: "The captured tab stopped sending audio.",
+    });
     return;
   }
 
@@ -165,7 +189,10 @@ async function handleOffscreenMessage(message: Record<string, unknown>): Promise
       await chrome.runtime.sendMessage({ target: "offscreen", type: "STOP_CAPTURE" }).catch(() => undefined);
     }
     const latest = await readState();
-    await publishState({ status: "error", transcript: latest.transcript, message: detail });
+    await publishState({
+      status: "error", transcript: latest.transcript,
+      suggestions: latest.suggestions, message: detail,
+    });
   }
 }
 
@@ -183,6 +210,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         state = await publishState({
           status: "idle",
           transcript: state.transcript,
+          suggestions: state.suggestions,
           message: "Capture is no longer running.",
         });
       }
