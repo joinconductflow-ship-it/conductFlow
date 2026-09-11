@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/service";
 import { sweepReminders } from "@/lib/reminders/sweep";
+import { scanPaymentRisks } from "@/lib/payments/risk";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +25,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // Service role: the scheduled sweep is the one job that legitimately spans orgs. It
-  // touches `reminder` only — never a transcript, draft, or client record.
-  const result = await sweepReminders(getServiceClient(), { actor: "agent" });
-  return NextResponse.json(result);
+  // Service role: scheduled sweeps legitimately span organizations. Both jobs remain
+  // deterministic and only create internal reminders, flags, and owner-reviewable drafts.
+  const db = getServiceClient();
+  const reminders = await sweepReminders(db, { actor: "agent" });
+  const paymentRisk = await scanPaymentRisks(db, { actor: "agent" });
+  return NextResponse.json({ reminders, paymentRisk });
 }
