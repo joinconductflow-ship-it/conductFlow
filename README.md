@@ -50,6 +50,46 @@ anywhere in that module. `npm run build` itself only runs `next build` and does 
 Vitest — the guard is enforced by `npm test`, not by the production build. Verify with
 `rg -i "messages/send|drafts/send" lib/`.
 
+## Current deployment status (updated 2026-09-11)
+
+Live at **https://conductflow-woad.vercel.app**, on the `joinconductflow-8385` Vercel
+account and the `fauqimhboonrmjzrnkzl` Supabase project (both under
+`joinconductflow@gmail.com`). Google OAuth runs through a Cloud project named
+`conductflow-auth`, also under that account. All 19 migrations are applied. This section
+exists so nobody re-discovers these gaps from scratch — update it as items get resolved.
+
+**Works right now, verified end-to-end with real clicks against the live deployment:**
+Google sign-in, every non-AI page and action across all 10 modules (retainers, documents,
+scheduling, billing incl. invoice math and **Gmail draft push**, scope of work, reviews'
+request-half, leads list, reports, payment risk scanning), and the daily cron sweep.
+
+**Blocked or unfinished — pick one up if you're able to:**
+
+1. **AI Gateway has no payment method on file.** Every AI-drafting feature (ingest's
+   commitment extraction, lead triage, review-response drafting, the meeting-assistant
+   suggestions endpoint) fails with `customer_verification_required` (see
+   Troubleshooting below) until a card is added under the `joinconductflow-8385` Vercel
+   team's AI Gateway settings. The underlying usage is still free-tier — this is Vercel's
+   identity-verification gate on a brand-new account, not an actual charge — but nobody
+   has added one yet because of an explicit no-spend directive from the project owner.
+   This needs a deliberate go/no-spend decision from whoever owns that account; it is not
+   something to just go do.
+2. **The Google OAuth app is unverified and in Testing mode.** Only accounts explicitly
+   added as test users (Google Cloud Console → `conductflow-auth` project → **Google Auth
+   Platform → Audience**) can sign in with the restricted Gmail scope or connect
+   Gmail/Drive/Calendar at all — everyone else gets `access_denied`. Right now only
+   `sai.chowdarapu09@gmail.com` is allowlisted. Add real pilot users there one at a time,
+   or submit for Google verification before onboarding anyone outside the team (also
+   required past ~100 users regardless, see the existing note near the bottom of this file).
+3. **No UI to configure a `billing_rate`.** The table (hourly rate per client, or one
+   org-wide default) has no settings page anywhere — it's currently set by hand via SQL.
+   `Draft invoice` fails with "no billing rate configured for this client or organization"
+   for any org that hasn't had one inserted manually. Worth a small settings page.
+4. **The meeting-transcript Chrome extension (`extension/`) has never been tested in a
+   real browser.** It builds cleanly and passes every static check, but nobody has done an
+   actual load-unpacked + live tab-capture pass yet — see the warning banner at the top of
+   `extension/README.md` for exactly what to verify, and update that banner once it's done.
+
 ## Prerequisites
 
 - Node.js 22+ — the `ai` and `@supabase/supabase-js` versions locked in `package-lock.json`
@@ -305,8 +345,34 @@ sign-in button, and an org that has connected nothing simply gets plainer drafts
 
 ## Deploy
 
-Vercel project + env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`, `AI_GATEWAY_API_KEY`, `CRON_SECRET`); Supabase hosted project
-with migrations `0001`–`0011` applied (`npx supabase db push`). `SUPABASE_SERVICE_ROLE_KEY` is server-only — it is
-never imported into a client component. The hosted database has no seed data, so
-`/ingest` starts with no clients there — use **Add a new client**.
+Vercel project + Supabase hosted project with migrations `0001`–`0019` applied
+(`npx supabase db push`, or apply each file's SQL directly through the Supabase
+Management API's `database/query` endpoint if the CLI's own auth token lacks project-admin
+scope — see git history around 2026-09-10/11 for how this deployment's migrations were
+applied that way). `SUPABASE_SERVICE_ROLE_KEY` is server-only — it is never imported into
+a client component. The hosted database has no seed data, so `/ingest` starts with no
+clients there — use **Add a new client**.
+
+Env vars actually required in production, beyond the three Supabase ones already named
+throughout this file:
+
+- `SITE_ORIGIN` — this deployment's own origin, e.g. `https://your-app.vercel.app`. See
+  the comment above `siteOrigin()` in `lib/http/site-origin.ts`: without it, redirect
+  targets and OAuth callbacks trust the `Host`/`X-Forwarded-Host` headers instead, which
+  is an open-redirect risk. Set this in every deployed environment.
+- `DATA_SOURCE_KEK` — generate with
+  `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Without
+  it, connecting Gmail/Drive/Calendar fails outright (`DATA_SOURCE_KEK is not set`);
+  everything else keeps working.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from the Google Cloud OAuth client used
+  for the app's own Drive/Gmail/Calendar *connect* flow (`/auth/google/connect/callback`).
+  This is separate from Supabase's own Google provider config (which takes the same
+  client's ID/secret, registered at `<project>.supabase.co/auth/v1/callback` — a second,
+  different redirect URI on the *same* OAuth client covers both).
+- `CRON_SECRET` — required for the scheduled sweep in `vercel.json` (`/api/cron/reminders`,
+  daily) to authenticate; without it every scheduled run gets a 401 and nothing runs.
+  Vercel's Cron feature sends this automatically once the env var exists — generate any
+  random string, e.g. `node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`.
+- `AI_GATEWAY_API_KEY` — only needed if not deploying on Vercel itself (Vercel's own AI
+  Gateway auto-authenticates deployed projects via OIDC with no key required). See
+  "Current deployment status" above for the payment-method gate this hits regardless.
