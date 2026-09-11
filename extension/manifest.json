@@ -13,7 +13,8 @@
   "host_permissions": [
     "https://huggingface.co/*",
     "https://*.huggingface.co/*",
-    "https://*.hf.co/*"
+    "https://*.hf.co/*",
+    "https://conductflow-woad.vercel.app/*"
   ],
   "background": {
     "service_worker": "background.js",

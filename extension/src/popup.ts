@@ -6,6 +6,7 @@ type CaptureStatus = "idle" | "starting" | "loading_model" | "capturing" | "stop
 interface CaptureState {
   status: CaptureStatus;
   transcript: string;
+  suggestions: string[];
   message: string;
   progress?: number;
 }
@@ -21,10 +22,21 @@ const stopButton = document.querySelector<HTMLButtonElement>("#stop")!;
 const copyButton = document.querySelector<HTMLButtonElement>("#copy")!;
 const transcript = document.querySelector<HTMLTextAreaElement>("#transcript")!;
 const status = document.querySelector<HTMLDivElement>("#status")!;
+const suggestionList = document.querySelector<HTMLUListElement>("#suggestion-list")!;
+const suggestionEmpty = document.querySelector<HTMLParagraphElement>("#suggestion-empty")!;
 
 function render(state: CaptureState): void {
   transcript.value = state.transcript;
   transcript.scrollTop = transcript.scrollHeight;
+
+  const suggestions = Array.isArray(state.suggestions) ? state.suggestions : [];
+  suggestionList.replaceChildren(...suggestions.map((suggestion) => {
+    const item = document.createElement("li");
+    item.textContent = suggestion;
+    return item;
+  }));
+  suggestionList.hidden = suggestions.length === 0;
+  suggestionEmpty.hidden = suggestions.length > 0;
 
   const busy = state.status !== "idle" && state.status !== "error";
   startButton.disabled = busy;
@@ -45,13 +57,16 @@ async function refresh(): Promise<void> {
   if (response.ok && response.state) {
     render(response.state);
   } else {
-    render({ status: "error", transcript: transcript.value, message: response.error ?? "Unable to read extension state." });
+    render({
+      status: "error", transcript: transcript.value, suggestions: [],
+      message: response.error ?? "Unable to read extension state.",
+    });
   }
 }
 
 startButton.addEventListener("click", async () => {
   try {
-    render({ status: "starting", transcript: "", message: "Starting tab capture…" });
+    render({ status: "starting", transcript: "", suggestions: [], message: "Starting tab capture…" });
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab.id === undefined) {
       throw new Error("Chrome did not provide an active tab ID.");
@@ -66,6 +81,7 @@ startButton.addEventListener("click", async () => {
     render({
       status: "error",
       transcript: transcript.value,
+      suggestions: [],
       message: error instanceof Error ? error.message : String(error),
     });
   }
