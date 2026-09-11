@@ -15,8 +15,10 @@ export async function getCurrentOrgId(): Promise<string | null> {
 
 export async function listCommitments(orgId: string): Promise<Commitment[]> {
   const s = await getServerClient();
+  // A rejected commitment is meant to disappear ("nothing leaves the building"), not linger
+  // in the queue with a badge — so it's excluded here rather than filtered per-view.
   const { data, error } = await s.from("commitment").select("*").eq("org_id", orgId)
-    .order("created_at", { ascending: false });
+    .neq("status", "rejected").order("created_at", { ascending: false });
   logFailure("listCommitments", error);
   return (data ?? []) as Commitment[];
 }
@@ -111,7 +113,7 @@ export async function loadOperationsData(orgId: string): Promise<{
 }> {
   const s = await getServerClient();
   const [commitments, tasks, clients] = await Promise.all([
-    s.from("commitment").select("*").eq("org_id", orgId),
+    s.from("commitment").select("*").eq("org_id", orgId).neq("status", "rejected"),
     s.from("task").select("*").eq("org_id", orgId),
     s.from("client_contact").select("id,name").eq("org_id", orgId),
   ]);

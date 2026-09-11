@@ -114,7 +114,7 @@ export function BillingPanel({ clients, entries, invoices, drafts }: BillingPane
             <CardTitle>{clients.find((client) => client.id === invoice.client_id)?.name ?? "Unknown client"}</CardTitle>
             <Badge tone={invoice.status === "paid" ? "ok" : invoice.status === "overdue" ? "warn" : "neutral"}>{invoice.status}</Badge>
           </div>
-          <p className="mono" style={{ color: "var(--faint)", overflowWrap: "anywhere", marginTop: "var(--space-2)" }}>Invoice {invoice.id}</p>
+          <p className="mono" style={{ color: "var(--faint)", overflowWrap: "anywhere", marginTop: "var(--space-2)" }}>Invoice {invoice.id.slice(0, 8).toUpperCase()}</p>
           <p className="tabular" style={{ marginTop: "var(--space-3)" }}>
             ${(invoice.total_cents / 100).toFixed(2)} · {invoice.due_date ? `Due ${invoice.due_date}` : "No due date"}
           </p>

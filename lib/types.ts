@@ -3,7 +3,7 @@ import type { TaskStatus } from "@/lib/tasks/transitions";
 export type { TaskStatus };
 
 export type Confidence = "high" | "medium" | "low";
-export type CommitmentStatus = "proposed" | "approved" | "tasked" | "done";
+export type CommitmentStatus = "proposed" | "approved" | "tasked" | "done" | "rejected";
 export type Role = "owner" | "member";
 
 export interface Org {

@@ -3,6 +3,9 @@
 ConductFlow turns conversations from small client-service businesses into approved
 tasks and follow-up drafts — nothing sends without you.
 
+Recording a demo? See **[DEMO.md](DEMO.md)** for a tested, step-by-step script against
+the live deployment.
+
 Phase 1 built the skeleton: seeded transcript → mock extraction → commitment queue →
 draft review → promise-risk dashboard, with org isolation (RLS), an approval-gated
 action chokepoint, and an append-only audit log.
@@ -55,26 +58,37 @@ Vitest — the guard is enforced by `npm test`, not by the production build. Ver
 Live at **https://conductflow-woad.vercel.app**, on the `joinconductflow-8385` Vercel
 account and the `fauqimhboonrmjzrnkzl` Supabase project (both under
 `joinconductflow@gmail.com`). Google OAuth runs through a Cloud project named
-`conductflow-auth`, also under that account. All 19 migrations are applied. This section
+`conductflow-auth`, also under that account. All 20 migrations are applied. This section
 exists so nobody re-discovers these gaps from scratch — update it as items get resolved.
 
 **Works right now, verified end-to-end with real clicks against the live deployment:**
-Google sign-in, every non-AI page and action across all 10 modules (retainers, documents,
-scheduling, billing incl. invoice math and **Gmail draft push**, scope of work, reviews'
-request-half, leads list, reports, payment risk scanning), and the daily cron sweep.
+Google sign-in, every module including AI-drafting (ingest's commitment extraction, lead
+triage, review-response drafting), Gmail draft push, invoice math, payment risk scanning,
+retainers, documents, scheduling, scope of work, reports, and the daily cron sweep. See
+`DEMO.md` for a step-by-step walkthrough of the live product.
+
+**Resolved:**
+
+- **AI Gateway.** A card is on file and a **$5/month team spend cap** is set
+  (`vercel ai-gateway budgets set team --limit 5 --refresh-period monthly`) so nothing can
+  overspend. The extraction/drafting model was switched from the always-free
+  `openai/gpt-oss-120b` (rate-limited hard enough to fail on two calls back to back) to
+  `openai/gpt-4o-mini` (`lib/agent/schema.ts`), which draws against that $5 credit instead
+  — fractions of a cent per call. Watch usage at Vercel → `joinconductflow-8385` → AI
+  Gateway → Budgets & Spend; raise the cap there if $5/month stops being enough.
+- **Discarding a commitment didn't actually remove it from the queue.** `rejectCommitment`
+  logged an `approval_event` but never updated `commitment.status`, so a discarded item sat
+  at `status = 'proposed'` and kept reappearing under "awaiting review" forever. Migration
+  `0020` adds `'rejected'` to the status check constraint; `rejectCommitment` now sets it,
+  and `listCommitments`/`loadOperationsData` exclude it. Fixed 2026-09-11 while preparing
+  the demo — nobody had actually clicked Discard on a real deployment before.
+- **Raw invoice UUIDs were shown to clients and on the billing page** (`Invoice
+  9bda9579-d2e8-...`). Both now show an 8-character uppercase label derived from the UUID
+  (`lib/billing/invoicing.ts`, `components/billing/BillingPanel.tsx`) instead.
 
 **Blocked or unfinished — pick one up if you're able to:**
 
-1. **AI Gateway has no payment method on file.** Every AI-drafting feature (ingest's
-   commitment extraction, lead triage, review-response drafting, the meeting-assistant
-   suggestions endpoint) fails with `customer_verification_required` (see
-   Troubleshooting below) until a card is added under the `joinconductflow-8385` Vercel
-   team's AI Gateway settings. The underlying usage is still free-tier — this is Vercel's
-   identity-verification gate on a brand-new account, not an actual charge — but nobody
-   has added one yet because of an explicit no-spend directive from the project owner.
-   This needs a deliberate go/no-spend decision from whoever owns that account; it is not
-   something to just go do.
-2. **The Google OAuth app is unverified and in Testing mode.** Only accounts explicitly
+1. **The Google OAuth app is unverified and in Testing mode.** Only accounts explicitly
    added as test users (Google Cloud Console → `conductflow-auth` project → **Google Auth
    Platform → Audience**) can sign in with the restricted Gmail scope or connect
    Gmail/Drive/Calendar at all — everyone else gets `access_denied`. Right now only
@@ -85,15 +99,15 @@ request-half, leads list, reports, payment risk scanning), and the daily cron sw
    one-time fee). This is also required regardless past ~100 total users. Do not open
    public Gmail access before this path is done — that's a deliberate current gate, not an
    oversight.
-3. **No UI to configure a `billing_rate`.** The table (hourly rate per client, or one
+2. **No UI to configure a `billing_rate`.** The table (hourly rate per client, or one
    org-wide default) has no settings page anywhere — it's currently set by hand via SQL.
    `Draft invoice` fails with "no billing rate configured for this client or organization"
    for any org that hasn't had one inserted manually. Worth a small settings page.
-4. **The meeting-transcript Chrome extension (`extension/`) has never been tested in a
+3. **The meeting-transcript Chrome extension (`extension/`) has never been tested in a
    real browser.** It builds cleanly and passes every static check, but nobody has done an
    actual load-unpacked + live tab-capture pass yet — see the warning banner at the top of
    `extension/README.md` for exactly what to verify, and update that banner once it's done.
-5. **Legal documents are placeholders, not a reviewed contract.** `/privacy` and `/terms`
+4. **Legal documents are placeholders, not a reviewed contract.** `/privacy` and `/terms`
    exist and describe what the code actually does (see `lib/legal/pending.ts` for the
    shared unresolved values: legal entity, governing jurisdiction, effective date). Per
    research done 2026-09-11 (Perplexity, 30 sources) into what a solo founder needs before
@@ -138,10 +152,10 @@ request-half, leads list, reports, payment risk scanning), and the daily cron sw
 1. `cp .env.local.example .env.local` and fill in the values printed by `supabase start`
    (`API_URL` → `NEXT_PUBLIC_SUPABASE_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY`).
 2. Set `AI_GATEWAY_API_KEY` in `.env.local` for extraction — it resolves
-   `openai/gpt-oss-120b` through the Vercel AI Gateway. `vercel env pull` also
+   `openai/gpt-4o-mini` through the Vercel AI Gateway. `vercel env pull` also
    works: the `VERCEL_OIDC_TOKEN` it writes authenticates the gateway on its own, but
    it expires every 12 hours. `npm test` does not need either; tests inject a mock model.
-3. `npx supabase start` then `npm run db:reset` (applies migrations `0001`–`0011` + seed).
+3. `npx supabase start` then `npm run db:reset` (applies migrations `0001`–`0020` + seed).
 4. `npm run dev` → http://localhost:3000
 5. Open `/onboarding`. Google OAuth sign-in shipped in Phase 3A and works once the
    credentials in **Google setup** below are in place. **Continue as demo owner** is the
@@ -158,7 +172,7 @@ containers, so nothing here shells out to Docker.
    project ref (the `xxxxxxxx` in `https://xxxxxxxx.supabase.co`).
 2. `npx supabase link --project-ref <ref>` — prompts for the database password you set
    when creating the project. This does not start any local service.
-3. `npm run db:push` — applies `supabase/migrations/0001`–`0011` directly to the hosted
+3. `npm run db:push` — applies `supabase/migrations/0001`–`0020` directly to the hosted
    database over its Postgres connection. No shadow database, no containers.
 4. Seed the demo data: grab the connection string from the dashboard
    (**Project Settings → Database → Connection string**, "URI" tab) and run
@@ -298,13 +312,12 @@ verbatim, injection fixture flagged.
 
 ### Model choice
 
-`EXTRACTION_MODEL` is `openai/gpt-oss-120b`. `anthropic/claude-sonnet-5` is the better
-model for this job, but free-tier gateway credit cannot reach it — the call fails with
-`RestrictedModelsError`. Free tier also rate-limits the models it does allow to roughly
-one request per minute, which is why the eval paces itself (`EVAL_PACE_MS`, default 45s)
-and takes several minutes. On paid credit, drop `EVAL_PACE_MS` to `0` and consider
-switching the model back; the eval expectations were met by gpt-oss and should hold or
-improve.
+`EXTRACTION_MODEL` is `openai/gpt-4o-mini`, drawing against the team's $5/month AI
+Gateway budget (see "Current deployment status" above) rather than the always-free
+`openai/gpt-oss-120b`, which rate-limits hard enough to fail on two calls back to back.
+`anthropic/claude-sonnet-5` is a stronger model for this job but needs a higher spend cap
+to reach reliably — the eval paces itself (`EVAL_PACE_MS`, default 45s) as a safety
+margin against any gateway model's rate limit, not just the free one.
 
 ## Google setup
 
@@ -351,14 +364,20 @@ sign-in button, and an org that has connected nothing simply gets plainer drafts
   `auth.users`, so the browser session is stale. Sign in again at `/onboarding`.
 - **Ingest fails with a gateway error.** Check the gateway credential. The transcript is
   still saved: `/queue` shows it under **Needs attention** with a Retry button.
-- **`customer_verification_required` (HTTP 403) from the gateway.** Authentication
-  succeeded; the Vercel account has no payment method, so AI Gateway refuses every
-  request. Add a card under the team's AI settings — no code change helps.
-- **`RestrictedModelsError` (HTTP 403).** The model is paid-credit only. Either top up
-  gateway credit or point `EXTRACTION_MODEL` at a model free tier allows.
-- **`GatewayRateLimitError`.** Free-tier throttling, not a bug. Space the calls out
-  (`EVAL_PACE_MS`) or top up. Ingest retries twice and then leaves the transcript in
-  **Needs attention**, so nothing is lost.
+- **`customer_verification_required` (HTTP 403) from the gateway.** No payment method on
+  file — AI Gateway refuses every request until a card is added under the team's AI
+  settings. Resolved on this deployment; if it recurs, check the card is still valid.
+- **`RestrictedModelsError` (HTTP 403).** The model is paid-credit only. Either raise the
+  team's AI Gateway budget (`vercel ai-gateway budgets set team --limit <N>`) or point
+  `EXTRACTION_MODEL` at a model the current budget allows.
+- **`GatewayRateLimitError` saying "Free tier requests on this model are rate-limited."**
+  This is not about which model you call — it means the team has **no AI Gateway budget
+  set at all**, so the account is treated as free-tier regardless of card-on-file or model.
+  Fix: `vercel ai-gateway budgets set team --limit 5 --refresh-period monthly` (or check
+  `vercel ai-gateway budgets list` first — an existing $0 or missing budget is the tell).
+  This is what broke the demo prep on 2026-09-11: the card alone did not unlock paid
+  routing, the explicit budget did. Ingest retries twice and then leaves the transcript in
+  **Needs attention**, so nothing is lost either way.
 - **`new row violates check constraint "agent_blueprint_no_unattended_external"`.** The
   blueprint tried to grant `push_email_draft` or `edit_crm` unattended. Those reach someone
   outside the team and always need a human click — set them to **ask first** instead. The
@@ -373,7 +392,7 @@ sign-in button, and an org that has connected nothing simply gets plainer drafts
 
 ## Deploy
 
-Vercel project + Supabase hosted project with migrations `0001`–`0019` applied
+Vercel project + Supabase hosted project with migrations `0001`–`0020` applied
 (`npx supabase db push`, or apply each file's SQL directly through the Supabase
 Management API's `database/query` endpoint if the CLI's own auth token lacks project-admin
 scope — see git history around 2026-09-10/11 for how this deployment's migrations were

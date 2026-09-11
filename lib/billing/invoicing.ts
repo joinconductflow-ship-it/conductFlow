@@ -72,6 +72,8 @@ export async function draftInvoiceFromTimeEntries(
   due.setUTCDate(due.getUTCDate() + 30);
   const invoiceId = randomUUID(), draftId = randomUUID();
   const dueDate = due.toISOString().slice(0, 10);
+  // A client-facing label shorter than the full UUID; the UUID stays the real key everywhere else.
+  const invoiceNumber = invoiceId.slice(0, 8).toUpperCase();
 
   // One transaction prevents a failed draft or a competing rollup from consuming time twice.
   const { error } = await db.rpc("create_time_invoice", {
@@ -79,8 +81,8 @@ export async function draftInvoiceFromTimeEntries(
       total_cents: totalCents, total_minutes: String(minutes), due_date: dueDate, created_at: now.toISOString() },
     p_entry_ids: entries.map((entry) => entry.id),
     p_rate_id: rate.id, p_rate_cents: rate.amount_cents,
-    p_message: { id: draftId, subject: `Invoice ${invoiceId}`,
-      body: `Hi ${client.name ?? "there"},\n\nInvoice ${invoiceId} covers ${minutes} minutes at ${money(rate.amount_cents)} per hour.\nTotal due: ${money(totalCents)}\nDue date: ${dueDate} (net 30).\n\nPlease let me know if you have any questions.\n\nThanks!` },
+    p_message: { id: draftId, subject: `Invoice ${invoiceNumber}`,
+      body: `Hi ${client.name ?? "there"},\n\nInvoice ${invoiceNumber} covers ${minutes} minutes at ${money(rate.amount_cents)} per hour.\nTotal due: ${money(totalCents)}\nDue date: ${dueDate} (net 30).\n\nPlease let me know if you have any questions.\n\nThanks!` },
   });
   if (error) throw error;
 
@@ -145,8 +147,8 @@ export async function sweepOverdueInvoices(
     const { data: created, error } = await db.rpc("draft_invoice_collection", {
       p_invoice_id: invoice.id, p_org_id: invoice.org_id, p_now: now.toISOString(),
       p_total_cents: invoice.total_cents, p_due_date: invoice.due_date,
-      p_subject: `Payment reminder: invoice ${invoice.id}`,
-      p_body: `Hi ${client.name ?? "there"},\n\nA quick reminder that invoice ${invoice.id} for ${money(invoice.total_cents)} was due on ${invoice.due_date}. If you've already paid, please let me know so I can update our records. Otherwise, could you share when we can expect payment?\n\nThanks!`,
+      p_subject: `Payment reminder: invoice ${invoice.id.slice(0, 8).toUpperCase()}`,
+      p_body: `Hi ${client.name ?? "there"},\n\nA quick reminder that invoice ${invoice.id.slice(0, 8).toUpperCase()} for ${money(invoice.total_cents)} was due on ${invoice.due_date}. If you've already paid, please let me know so I can update our records. Otherwise, could you share when we can expect payment?\n\nThanks!`,
     });
     if (error) throw error;
     if (!created) { skipped++; continue; }

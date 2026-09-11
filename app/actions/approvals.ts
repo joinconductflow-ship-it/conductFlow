@@ -134,6 +134,9 @@ export async function rejectCommitment(commitmentId: string) {
   const { error: rejectError } = await s.from("approval_event").insert({ org_id: c.org_id,
     subject_type: "commitment", subject_id: commitmentId, state: "rejected", actor_user_id: uid });
   if (rejectError) throw rejectError;
+  const { error: updateError } = await s.from("commitment").update({ status: "rejected" })
+    .eq("id", commitmentId).eq("org_id", c.org_id);
+  if (updateError) throw updateError;
   await logAudit({ orgId: c.org_id, actor: "human", action: "update",
     target: `commitment:${commitmentId}:reject` });
   revalidatePath("/queue");

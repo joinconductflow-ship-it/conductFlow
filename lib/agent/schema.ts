@@ -1,9 +1,10 @@
 import { z } from "zod";
 
-// Free-tier AI Gateway credit cannot reach anthropic/claude-sonnet-5 (RestrictedModelsError).
-// gpt-oss-120b is reachable and good enough for now; it resolves relative dates less
-// reliably, which the eval expectations reflect.
-export const EXTRACTION_MODEL = "openai/gpt-oss-120b";
+// gpt-oss-120b is a free model on the Gateway, but its free tier is rate-limited hard
+// enough to fail on two extractions back to back. A card is now on file, so paid models
+// draw against Vercel's included AI Gateway credit instead — gpt-4o-mini costs fractions
+// of a cent per extraction and isn't subject to the free-tier throughput cap.
+export const EXTRACTION_MODEL = "openai/gpt-4o-mini";
 export const MAX_TRANSCRIPT_CHARS = 250_000;
 export const MAX_COMMITMENTS = 50;
 export const MAX_SCOPE_SUMMARY_CHARS = 20_000;
