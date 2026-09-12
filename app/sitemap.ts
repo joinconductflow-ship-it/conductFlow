@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { publicOrigin } from "@/lib/http/public-origin";
 
-const SITE = process.env.SITE_ORIGIN?.trim() || "https://conductflow.app";
+const SITE = publicOrigin();
 
 /**
  * Only the pages a signed-out visitor can actually reach. Listing a route that returns a

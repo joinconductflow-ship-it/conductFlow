@@ -1,16 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { publicOrigin } from "@/lib/http/public-origin";
 import "./globals.css";
 
 /**
- * Where this deployment lives, for the absolute URLs metadata needs. Open Graph does not
- * accept a relative image path — a crawler has no page context to resolve it against — so
- * without a base, social cards silently ship with no image at all.
- *
- * SITE_ORIGIN is the same variable the redirect helper uses (lib/http/site-origin.ts).
- * The fallback is the production domain rather than localhost: a preview build with the
- * variable unset should still produce a card that points somewhere real.
+ * Open Graph does not accept a relative image path — a crawler has no page context to
+ * resolve it against — so without an absolute base, social cards ship pointing at nothing.
+ * publicOrigin() reads the answer out of the environment instead of guessing at it.
  */
-const SITE = process.env.SITE_ORIGIN?.trim() || "https://conductflow.app";
+const SITE = publicOrigin();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
