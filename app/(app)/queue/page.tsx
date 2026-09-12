@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getServerClient } from "@/lib/db/server";
+import { SlackScanButton } from "@/components/queue/SlackScanButton";
 import { readPageData } from "@/lib/db/page-read";
 import { Unavailable } from "@/components/ui/Unavailable";
 import {
@@ -37,6 +39,17 @@ export default async function QueuePage() {
     if (!b.deadline) return -1;
     return Date.parse(a.deadline) - Date.parse(b.deadline);
   });
+  const slackReady = await readPageData("/queue: Slack readiness", async () => {
+    const db = await getServerClient();
+    const { data: connections, error } = await db.from("connected_data_source_public").select("id")
+      .eq("org_id", orgId).eq("provider", "slack").eq("state", "active");
+    if (error) throw error;
+    if (!connections?.length) return false;
+    const { data, error: mappingError } = await db.from("slack_channel_mapping").select("id")
+      .eq("org_id", orgId).in("connected_data_source_id", connections.map((connection) => connection.id)).limit(1);
+    if (mappingError) throw mappingError;
+    return !!data?.length;
+  });
   const needsReview = items.filter((c) => c.status === "proposed").length;
 
   return (
@@ -52,6 +65,7 @@ export default async function QueuePage() {
       />
 
       <GmailScanButton />
+      {slackReady.data && <SlackScanButton />}
 
       {/* Escalations first: a complaint outranks the queue it came from. */}
       {escalations.unavailable ? <Unavailable section="Escalations are" /> : <EscalationStrip items={escalations.data ?? []} />}
