@@ -642,38 +642,66 @@ button:hover:not(:disabled),
 
 /* Present to the keyboard, out of the way of everyone else, until it is focused. */
 .queue-sync-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
   margin-bottom: var(--space-5);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--raised);
+}
+.queue-sync-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.queue-sync-label {
+  margin: 0;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .queue-sync-controls {
   display: flex;
-  align-items: center;
   gap: var(--space-3);
   min-width: 0;
   flex-wrap: wrap;
 }
 .queue-sync-control {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: grid;
+  gap: var(--space-1);
+  flex: 0 1 270px;
   min-width: 0;
+}
+.queue-sync-button {
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: min(100%, 220px);
+}
+.queue-sync-mark {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+}
+.queue-sync-action {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
 }
 .queue-sync-status {
   margin: 0;
-  max-width: 28ch;
+  max-width: 42ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-xs);
 }
 .queue-sync-caption {
+  margin: var(--space-1) 0 0;
   color: var(--faint);
   font-size: var(--text-xs);
   white-space: nowrap;
@@ -726,9 +754,11 @@ button:hover:not(:disabled),
 }
 
 @media (max-width: 680px) {
-  .queue-sync-row {
-    align-items: flex-start;
-    flex-direction: column;
+  .queue-sync-control {
+    flex-basis: 100%;
+  }
+  .queue-sync-button {
+    width: 100%;
   }
   .queue-sync-caption {
     white-space: normal;

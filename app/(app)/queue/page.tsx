@@ -71,13 +71,18 @@ export default async function QueuePage() {
         meta={queueMeta}
       />
 
-      <div className="queue-sync-row" aria-label="Conversation sync">
+      <section className="queue-sync-row" aria-labelledby="queue-sync-label">
+        <div className="queue-sync-header">
+          <div>
+            <p id="queue-sync-label" className="mono queue-sync-label">Connected sources</p>
+            <p className="mono queue-sync-caption">Pull new conversations into the queue</p>
+          </div>
+        </div>
         <div className="queue-sync-controls">
           <GmailScanButton />
           {slackReady.data && <SlackScanButton />}
         </div>
-        <span className="mono queue-sync-caption">Pull new conversations into the queue</span>
-      </div>
+      </section>
 
       {/* Escalations first: a complaint outranks the queue it came from. */}
       {escalations.unavailable ? <Unavailable section="Escalations are" /> : <EscalationStrip items={escalations.data ?? []} />}

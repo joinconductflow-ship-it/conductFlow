@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { scanSlackNow } from "@/app/actions/slack-watch";
@@ -27,9 +28,11 @@ export function SlackScanButton() {
 
   return (
     <div className="queue-sync-control">
-      <button type="button" disabled={pending} aria-busy={pending} onClick={scan}
-        style={buttonStyle("secondary", pending)}>
-        {pending ? "Syncing Slack…" : "Slack · Sync now"}
+      <button type="button" className="queue-sync-button" disabled={pending} aria-busy={pending} onClick={scan}
+        style={{ ...buttonStyle("secondary", pending), minWidth: 148 }}>
+        <Image src="/integrations/slack.webp" alt="" width={20} height={20} className="queue-sync-mark" />
+        <span>Slack</span>
+        <span className="queue-sync-action">{pending ? "Syncing…" : "Sync"}</span>
       </button>
       <p role={error ? "alert" : "status"} className="queue-sync-status"
         style={{ color: error ? "var(--danger-text)" : "var(--muted)" }}>

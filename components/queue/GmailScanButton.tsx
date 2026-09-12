@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { scanGmailNow } from "@/app/actions/gmail-watch";
@@ -47,9 +48,11 @@ export function GmailScanButton() {
 
   return (
     <div className="queue-sync-control">
-      <button type="button" disabled={isPending} aria-busy={isPending} onClick={scan}
-        style={buttonStyle("secondary", isPending)}>
-        {isPending ? "Syncing Gmail…" : "Gmail · Sync now"}
+      <button type="button" className="queue-sync-button" disabled={isPending} aria-busy={isPending} onClick={scan}
+        style={{ ...buttonStyle("secondary", isPending), minWidth: 148 }}>
+        <Image src="/integrations/gmail.webp" alt="" width={20} height={20} className="queue-sync-mark" />
+        <span>Gmail</span>
+        <span className="queue-sync-action">{isPending ? "Syncing…" : "Sync"}</span>
       </button>
       <p role={error ? "alert" : "status"} className="queue-sync-status"
         style={{ color: error ? "var(--danger-text)" : "var(--muted)" }}>
