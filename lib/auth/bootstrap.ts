@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logAudit } from "@/lib/audit/log";
+import { TERMS_REQUIRED } from "@/lib/auth/terms";
 
 export interface BootstrapUser {
+  /** Required for first-time setup; existing members need not accept again. */
+  termsAccepted?: boolean;
   id: string;
   email: string;
   fullName?: string | null;
@@ -36,11 +39,19 @@ export async function bootstrapUser(
   if (membershipError) throw membershipError;
   if (existing) return { orgId: existing.org_id as string, created: false };
 
-  // app_user mirrors auth.users; upserted because the row may survive a membership that
-  // was removed.
+  if (user.termsAccepted !== true) throw new Error(TERMS_REQUIRED);
+
+  // Same upsert as before terms tracking existed — email stays in sync even if an
+  // app_user row survives a removed membership. terms_accepted_at is a separate,
+  // conditional update below so a prior acceptance is never overwritten.
   const { error: userError } = await db.from("app_user")
     .upsert({ id: user.id, email: user.email }, { onConflict: "id" });
   if (userError) throw userError;
+
+  const { error: termsError } = await db.from("app_user")
+    .update({ terms_accepted_at: new Date().toISOString() })
+    .eq("id", user.id).is("terms_accepted_at", null);
+  if (termsError) throw termsError;
 
   const { data: org, error: orgError } = await db.from("organization")
     .insert({ name: orgNameFor(user) }).select("id").single();

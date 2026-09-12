@@ -1,5 +1,7 @@
 import { signInAsDemoOwner } from "@/app/actions/dev-auth";
-import { Card, CardTitle, buttonStyle, fieldStyle, labelStyle } from "@/components/ui/primitives";
+import { Card, CardTitle, buttonStyle } from "@/components/ui/primitives";
+
+import { SignInControls } from "./sign-in-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -9,26 +11,6 @@ const NEXT = [
   "Add one client conversation and see what the assistant finds in it.",
   "Connect Gmail, Drive, or Calendar later, one at a time, only if you want to.",
 ];
-
-/**
- * Two ways in, separated by a rule rather than by one of them hiding under the other.
- * The word stays readable to a screen reader — it is the choice, not the decoration; only
- * the two hairlines are hidden.
- */
-function OrRule() {
-  const line = { flex: 1, height: 1, background: "var(--border)" } as const;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)",
-      margin: "var(--space-5) 0" }}>
-      <span aria-hidden style={line} />
-      <span className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)",
-        letterSpacing: "0.08em", textTransform: "uppercase" }}>
-        or
-      </span>
-      <span aria-hidden style={line} />
-    </div>
-  );
-}
 
 export default async function Onboarding({ searchParams }:
   { searchParams: Promise<{ error?: string; sent?: string }> }) {
@@ -52,32 +34,7 @@ export default async function Onboarding({ searchParams }:
         for a password.
       </p>
 
-      <a href="/auth/signin" className="cf-btn" style={{
-          ...buttonStyle("secondary"),
-          background: "#fff", color: "#111", borderColor: "#fff", fontWeight: 600,
-          width: "100%", height: 36, marginTop: "var(--space-5)",
-        }}>
-          Continue with Google
-      </a>
-
-      <OrRule />
-
-      {/*
-        A plain form POST. The handler writes the PKCE verifier as a cookie and answers 303,
-        which a form navigation follows on its own — so this page needs no JavaScript, stays
-        a server component, and works before any bundle has loaded.
-      */}
-      <form action="/auth/email" method="post">
-        <label style={{ ...labelStyle, marginTop: 0 }}>
-          Email address
-          <input name="email" type="email" required autoComplete="email"
-            placeholder="you@yourcompany.com" style={fieldStyle} />
-        </label>
-        <button type="submit" style={{ ...buttonStyle("secondary"), width: "100%",
-          height: 36, marginTop: "var(--space-3)" }}>
-          Email me a sign-in link
-        </button>
-      </form>
+      <SignInControls />
 
       {sent && (
         <Card tone="ok" style={{ marginTop: "var(--space-4)" }}>

@@ -1,3 +1,4 @@
+import { TERMS_COOKIE, TERMS_COOKIE_OPTIONS, TERMS_REQUIRED } from "@/lib/auth/terms";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -14,10 +15,15 @@ export const dynamic = "force-dynamic";
  * flush Set-Cookie, so the verifier never reached the browser and the callback failed with
  * "no valid flow state found". Here the cookies are collected and written onto the 302 itself.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const origin = await siteOrigin();
+  if (new URL(request.url).searchParams.get("terms") !== "accepted") {
+    return NextResponse.redirect(
+      new URL(`/onboarding?error=${encodeURIComponent(TERMS_REQUIRED)}`, origin)
+    );
+  }
   const store = await cookies();
   const pending: { name: string; value: string; options: Record<string, unknown> }[] = [];
-  const origin = await siteOrigin();
 
   let db: ReturnType<typeof createServerClient>;
   try {
@@ -66,5 +72,6 @@ export async function GET() {
   for (const { name, value, options } of pending) {
     response.cookies.set(name, value, options);
   }
+  response.cookies.set(TERMS_COOKIE, "true", TERMS_COOKIE_OPTIONS);
   return response;
 }
