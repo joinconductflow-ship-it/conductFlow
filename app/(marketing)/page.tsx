@@ -153,8 +153,8 @@ export default function Home() {
             </h1>
             <p style={{ color: "var(--muted)", fontSize: "var(--text-md)", lineHeight: 1.6,
               marginTop: "var(--space-5)", marginInline: "auto", maxWidth: "54ch" }}>
-              ConductFlow finds commitments in your calls, emails, and Slack messages, creates the
-              follow-up, and tracks all the administrative work.
+              ConductFlow finds commitments in your calls, emails, slack, drafts the next step,
+              and tracks the administrative work.
             </p>
             <div style={{ marginTop: "var(--space-6)", display: "flex", flexDirection: "column",
               alignItems: "center" }}>
