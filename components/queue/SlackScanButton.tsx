@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { scanSlackNow } from "@/app/actions/slack-watch";
-import { Card, buttonStyle } from "@/components/ui/primitives";
+import { buttonStyle } from "@/components/ui/primitives";
 
 export function SlackScanButton() {
   const router = useRouter();
@@ -26,15 +26,15 @@ export function SlackScanButton() {
   }
 
   return (
-    <Card style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "center",
-      gap: "var(--space-4)", flexWrap: "wrap" }}>
-      <button type="button" disabled={pending} aria-busy={pending} onClick={scan} style={buttonStyle("secondary", pending)}>
-        {pending ? "Scanning Slack…" : "Scan Slack for new commitments"}
+    <div className="queue-sync-control">
+      <button type="button" disabled={pending} aria-busy={pending} onClick={scan}
+        style={buttonStyle("secondary", pending)}>
+        {pending ? "Syncing Slack…" : "Slack · Sync now"}
       </button>
-      <p role={error ? "alert" : "status"} style={{ color: error ? "var(--danger-text)" : "var(--muted)",
-        fontSize: "var(--text-sm)", margin: 0 }}>
-        {error ? `${note ?? ""} ${error}` : note ?? "Reads new messages from channels mapped to your clients."}
+      <p role={error ? "alert" : "status"} className="queue-sync-status"
+        style={{ color: error ? "var(--danger-text)" : "var(--muted)" }}>
+        {error ? `${note ?? ""} ${error}` : note ?? "Mapped client channels"}
       </p>
-    </Card>
+    </div>
   );
 }

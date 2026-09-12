@@ -72,10 +72,10 @@ export function EscalationStrip({ items }: { items: OpenEscalation[] }) {
   }
 
   return (
-    <Card tone="warn" style={{ marginBottom: "var(--space-4)" }}>
+    <Card tone="neutral" style={{ marginBottom: "var(--space-4)", borderLeft: "3px solid var(--warn)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: "var(--space-3)", flexWrap: "wrap" }}>
-        <CardTitle tone="warn" dot>Needs a human decision</CardTitle>
+        <CardTitle tone="warn" dot>Needs your decision</CardTitle>
         <span className="mono" style={{ color: "var(--muted)", fontSize: "var(--text-xs)" }}>
           {seriousCount > 0 ? `${seriousCount} to read · ` : ""}{items.length} open
         </span>
@@ -90,7 +90,7 @@ export function EscalationStrip({ items }: { items: OpenEscalation[] }) {
           const serious = SERIOUS.has(e.kind);
           const busy = isPending && clearing === e.id;
           return (
-            <li key={e.id} style={{ display: "flex", justifyContent: "space-between",
+            <li key={e.id} className="queue-decision-row" style={{ display: "flex", justifyContent: "space-between",
               alignItems: "flex-start", gap: "var(--space-4)",
               padding: "var(--space-3) 0", borderTop: "1px solid var(--border)" }}>
               <span style={{ minWidth: 0 }}>
@@ -99,7 +99,7 @@ export function EscalationStrip({ items }: { items: OpenEscalation[] }) {
                   <Badge tone={serious ? "warn" : "neutral"}>{label.title}</Badge>
                   <span className="mono" style={{ color: "var(--faint)",
                     fontSize: "var(--text-xs)" }}>
-                    {e.conversation_title}
+                    From {e.conversation_title}
                   </span>
                 </span>
                 <span style={{ display: "block", marginTop: "var(--space-2)" }}>{e.detail}</span>
@@ -120,7 +120,7 @@ export function EscalationStrip({ items }: { items: OpenEscalation[] }) {
                 <button disabled={isPending} aria-busy={busy} onClick={() => act(e.id)}
                   style={{ ...buttonStyle("secondary", isPending), minWidth: 96,
                     justifyContent: "center" }}>
-                  {busy ? "Clearing…" : "Handled"}
+                  {busy ? "Clearing…" : "Mark resolved"}
                 </button>
               </span>
             </li>
