@@ -10,54 +10,52 @@
  */
 :root {
   /*
-   * Surfaces, darkest to lightest, each with the hover step it needs. A row that answers
-   * the pointer should not have to invent its own colour, so the step ships with the
-   * surface it belongs to.
+   * The cream-and-purple "paper" palette from the marketing page, promoted to the whole
+   * product (2026-09-12) so the signed-in app and the landing page read as one brand
+   * instead of two. Surfaces, darkest to lightest, each with the hover step it needs.
    */
-  --canvas: #0A0A0B;
-  --surface: #131316;
-  --surface-hover: #191920;
-  --raised: #1A1A20;
-  --raised-hover: #22222A;
+  --canvas: #F6F2E9;
+  --surface: #FFFDF8;
+  --surface-hover: #F0ECE3;
+  --raised: #FBF8F1;
+  --raised-hover: #F2EDE3;
 
-  /* Depth on a near-black canvas reads as an edge, not a shadow. Two weights is enough. */
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --border-loud: rgba(255, 255, 255, 0.22);
+  /* Depth on a paper canvas reads as an edge, not a shadow. Two weights is enough. */
+  --border: rgba(23, 23, 23, 0.12);
+  --border-strong: rgba(23, 23, 23, 0.22);
+  --border-loud: rgba(23, 23, 23, 0.32);
 
   /*
-   * Three text steps, and every one of them clears 4.5:1 on --canvas, --surface and
-   * --raised. "Quiet" is allowed to mean low-priority; it is never allowed to mean
-   * hard to read.
+   * Three text steps, ink on paper. "Quiet" is allowed to mean low-priority; it is never
+   * allowed to mean hard to read.
    */
-  --text: #EDEDEF;
-  --muted: #9A9AA5;
-  --faint: #868692;
+  --text: #171717;
+  --muted: #6F6A65;
+  --faint: #8B857E;
 
   /*
    * One accent, split by the job it is doing. --accent is the mark: fills, rails, bars,
-   * the meter. It is dark enough that white sits on it at 4.9:1. --accent-text is the
-   * same hue lifted until it clears 4.5:1 as text on a dark surface. A single token
-   * cannot be both — at the midpoint it fails in both directions, which is where this
-   * palette started.
+   * the meter. --accent-text is the same hue deepened until it clears 4.5:1 as text on a
+   * light surface. A single token cannot be both — at the midpoint it fails in both
+   * directions, which is where this palette started.
    */
   --accent: #5B5EF0;
-  --accent-hover: #6C6FF3;
-  --accent-text: #8B8DF7;
+  --accent-hover: #4F52D8;
+  --accent-text: #4D50BC;
   --accent-quiet: rgba(91, 94, 240, 0.12);
-  --accent-line: rgba(91, 94, 240, 0.42);
+  --accent-line: rgba(77, 80, 188, 0.34);
 
   /* Same split, same reason: a solid mark, a quiet fill, a hairline, a legible text step. */
-  --ok: #3FB68B;
-  --ok-quiet: rgba(63, 182, 139, 0.10);
-  --ok-line: rgba(63, 182, 139, 0.32);
-  --warn: #E0A23C;
-  --warn-quiet: rgba(224, 162, 60, 0.10);
-  --warn-line: rgba(224, 162, 60, 0.32);
-  --danger: #E5484D;
-  --danger-text: #FF6B70;
-  --danger-quiet: rgba(229, 72, 77, 0.10);
-  --danger-line: rgba(229, 72, 77, 0.34);
+  --ok: #217D61;
+  --ok-quiet: rgba(33, 125, 97, 0.10);
+  --ok-line: rgba(33, 125, 97, 0.30);
+  --warn: #986914;
+  --warn-quiet: rgba(152, 105, 20, 0.10);
+  --warn-line: rgba(152, 105, 20, 0.30);
+  --danger: #B3373D;
+  --danger-text: #A52F36;
+  --danger-quiet: rgba(179, 55, 61, 0.10);
+  --danger-line: rgba(179, 55, 61, 0.28);
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
@@ -109,8 +107,9 @@
 }
 
 /*
- * The public page has its own paper-and-ink palette. Keeping it scoped prevents the
- * signed-in operations UI from changing with the marketing direction.
+ * These values now match :root exactly — the whole product shares this palette as of
+ * 2026-09-12 — but the class stays so marketing-only structural rules (min-height, the
+ * base background/color pairing) have somewhere to live without assuming :root's values.
  */
 .marketing-page {
   --canvas: #F6F2E9;
@@ -611,7 +610,7 @@ button:hover:not(:disabled),
 }
 @supports (backdrop-filter: blur(2px)) {
   .cf-nav {
-    background: rgba(10, 10, 11, 0.72);
+    background: rgba(246, 242, 233, 0.72);
     backdrop-filter: blur(14px) saturate(150%);
   }
 }

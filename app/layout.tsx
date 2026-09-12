@@ -44,12 +44,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   /*
-   * The palette in globals.css is dark-only. Declaring it means the browser renders its
-   * own furniture to match — scrollbars, form controls, the address bar on mobile — rather
-   * than painting light chrome around a near-black page.
+   * The palette in globals.css is light-only (cream canvas, ink text). Declaring it means
+   * the browser renders its own furniture to match — scrollbars, form controls, the
+   * address bar on mobile — rather than painting dark chrome around a light page.
    */
-  colorScheme: "dark",
-  themeColor: "#0A0A0B",
+  colorScheme: "light",
+  themeColor: "#F6F2E9",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
