@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
+  consent: false,
   adapter: null as { setAll: (cookies: unknown[]) => void } | null,
   exchange: vi.fn(),
   getUser: vi.fn(),
@@ -16,7 +17,7 @@ vi.mock("@supabase/ssr", () => ({
   }),
 }));
 vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({ getAll: () => [] })),
+  cookies: vi.fn(async () => ({ getAll: () => state.consent ? [{ name: "cf-terms-accepted", value: "true" }] : [] })),
 }));
 vi.mock("@/lib/env", () => ({ requireEnv: vi.fn(() => "https://project.supabase.co") }));
 vi.mock("@/lib/db/service", () => ({ getServiceClient: vi.fn(() => ({})) }));
@@ -28,6 +29,7 @@ describe("GET /auth/callback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     state.adapter = null;
+    state.consent = false;
     state.exchange.mockResolvedValue({ error: null });
     state.getUser.mockResolvedValue({
       data: { user: { id: "user-1", email: "owner@example.test", user_metadata: {} } },
@@ -37,6 +39,7 @@ describe("GET /auth/callback", () => {
   });
 
   it("persists the exchanged session before redirecting a successful login to /queue", async () => {
+    state.consent = true;
     state.exchange.mockImplementation(async () => {
       state.adapter?.setAll([{
         name: "sb-project-auth-token", value: "session-value", options: { path: "/", sameSite: "lax" },
@@ -47,7 +50,15 @@ describe("GET /auth/callback", () => {
     const response = await GET(new Request("https://app.example/auth/callback?code=abc"));
     expect(response.headers.get("location")).toBe("https://app.example/queue");
     expect(response.headers.get("set-cookie")).toContain("sb-project-auth-token=session-value");
-    expect(state.bootstrap).toHaveBeenCalledWith({}, expect.objectContaining({ id: "user-1" }));
+    expect(state.bootstrap).toHaveBeenCalledWith({}, expect.objectContaining({ id: "user-1", termsAccepted: true }));
+  });
+
+  it("passes missing consent to bootstrap and returns its rejection to onboarding", async () => {
+    state.bootstrap.mockRejectedValue(new Error("You must accept the Privacy Policy and Terms to continue."));
+    const response = await GET(new Request("https://app.example/auth/callback?code=abc"));
+    expect(state.bootstrap).toHaveBeenCalledWith({}, expect.objectContaining({ termsAccepted: false }));
+    expect(new URL(response.headers.get("location")!).pathname).toBe("/onboarding");
+    expect(response.cookies.get("cf-terms-accepted")?.value).toBe("");
   });
 
   it("returns provider errors to onboarding", async () => {

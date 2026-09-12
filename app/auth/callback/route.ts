@@ -1,3 +1,4 @@
+import { TERMS_COOKIE, TERMS_COOKIE_OPTIONS } from "@/lib/auth/terms";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
   const redirect = (path: string) => {
     const response = NextResponse.redirect(new URL(path, url.origin));
     for (const { name, value, options } of pending) response.cookies.set(name, value, options);
+    response.cookies.set(TERMS_COOKIE, "", { ...TERMS_COOKIE_OPTIONS, maxAge: 0 });
     return response;
   };
 
@@ -75,6 +77,8 @@ export async function GET(request: Request) {
   // on /onboarding with a reason, and this one should too.
   try {
     await bootstrapUser(getServiceClient(), {
+      termsAccepted: store.getAll().some(({ name, value }) =>
+        name === TERMS_COOKIE && value === "true"),
       id: auth.user.id,
       email: auth.user.email ?? `${auth.user.id}@unknown.invalid`,
       fullName: (auth.user.user_metadata?.full_name as string | undefined) ?? null,

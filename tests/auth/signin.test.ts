@@ -38,19 +38,27 @@ describe("GET /auth/signin", () => {
       return { data: { url: "https://accounts.google.com/o/oauth2/v2/auth?state=test" }, error: null };
     });
 
-    const response = await GET();
+    const response = await GET(new Request("https://app.example/auth/signin?terms=accepted"));
     expect(response.headers.get("location"))
       .toBe("https://accounts.google.com/o/oauth2/v2/auth?state=test");
     expect(response.headers.get("set-cookie")).toContain("sb-project-auth-token-code-verifier=pkce-value");
+    expect(response.cookies.get("cf-terms-accepted")?.value).toBe("true");
     expect(state.signIn).toHaveBeenCalledWith(expect.objectContaining({
       provider: "google",
       options: expect.objectContaining({ redirectTo: "https://app.example/auth/callback" }),
     }));
   });
 
+  it("rejects missing acceptance before starting OAuth", async () => {
+    const response = await GET(new Request("https://app.example/auth/signin"));
+    expect(new URL(response.headers.get("location")!).searchParams.get("error"))
+      .toBe("You must accept the Privacy Policy and Terms to continue.");
+    expect(state.signIn).not.toHaveBeenCalled();
+  });
+
   it("returns Supabase OAuth errors to onboarding", async () => {
     state.signIn.mockResolvedValue({ data: { url: null }, error: new Error("Google is disabled") });
-    const response = await GET();
+    const response = await GET(new Request("https://app.example/auth/signin?terms=accepted"));
     expect(response.headers.get("location"))
       .toBe("https://app.example/onboarding?error=Google%20is%20disabled");
   });

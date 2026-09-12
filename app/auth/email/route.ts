@@ -1,3 +1,4 @@
+import { TERMS_COOKIE, TERMS_COOKIE_OPTIONS, TERMS_REQUIRED } from "@/lib/auth/terms";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -21,6 +22,12 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const origin = await siteOrigin();
   const form = await request.formData();
+  if (form.get("terms_accepted") !== "true") {
+    return NextResponse.redirect(
+      new URL(`/onboarding?error=${encodeURIComponent(TERMS_REQUIRED)}`, origin),
+      { status: 303 }
+    );
+  }
   const email = String(form.get("email") ?? "").trim();
 
   if (!email || !email.includes("@")) {
@@ -60,5 +67,6 @@ export async function POST(request: Request) {
   for (const { name, value, options } of pending) {
     response.cookies.set(name, value, options);
   }
+  if (!error) response.cookies.set(TERMS_COOKIE, "true", TERMS_COOKIE_OPTIONS);
   return response;
 }
