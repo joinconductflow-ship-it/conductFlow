@@ -135,8 +135,12 @@ export interface PushSummary { pushed: boolean; reason?: string }
 export async function pushApprovedDraft(commitmentId: string): Promise<PushSummary> {
   const uid = await currentUserId();
   const s = await getServerClient();
-  const { data: draft } = await s.from("deliverable_draft")
+  const { data: draft, error: draftLookupError } = await s.from("deliverable_draft")
     .select("id,org_id").eq("commitment_id", commitmentId).limit(1).maybeSingle();
+  // A lookup failure must not read as "no draft exists" — the caller's UI treats that
+  // reason as silent-by-design, so a transient error here would approve with no visible
+  // sign the Gmail push never happened.
+  if (draftLookupError) throw draftLookupError;
   if (!draft) return { pushed: false, reason: "no draft to push" };
   const orgId = draft.org_id as string;
 
@@ -147,8 +151,9 @@ export async function pushApprovedDraft(commitmentId: string): Promise<PushSumma
     { sources: ["client_contact"] });
   if (!decision.ok) return { pushed: false, reason: decision.reason };
 
-  const { data: source } = await service.from("connected_data_source")
+  const { data: source, error: sourceLookupError } = await service.from("connected_data_source")
     .select("id,account_email").eq("org_id", orgId).eq("provider", "google").maybeSingle();
+  if (sourceLookupError) throw sourceLookupError;
 
   try {
     const token = await getAccessToken(service, orgId, GMAIL_COMPOSE_SCOPE);

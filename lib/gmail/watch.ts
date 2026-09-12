@@ -116,9 +116,13 @@ async function scanOneConnection(
   result.messagesConsidered += parsed.length;
 
   for (const message of parsed) {
-    const { data: client_contact } = await db.from("client_contact")
+    const { data: client_contact, error: clientLookupError } = await db.from("client_contact")
       .select("id,name").eq("org_id", connection.org_id)
       .ilike("email", message.fromEmail).limit(1).maybeSingle();
+    // A lookup failure (timeout, transient network error) is not the same as "no client has
+    // this email" — counting it as an unmatched sender would silently drop a real client's
+    // message instead of surfacing something worth retrying.
+    if (clientLookupError) throw clientLookupError;
 
     if (!client_contact) {
       result.skippedUnmatchedSender++;
