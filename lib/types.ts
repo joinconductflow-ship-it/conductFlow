@@ -35,6 +35,18 @@ export interface ActionInputData {
   document_summary?: string;
   document_body?: string;
   document_details?: string;
+  /**
+   * Explicit provenance: which fields a reviewer has edited. Persisted inside `input_data`
+   * so a reviewer decision survives refreshes and reloads without a schema migration. A
+   * field listed here must not be overwritten by a later source-derived default.
+   */
+  reviewer_edited_fields?: string[];
+  /**
+   * Fields the reviewer explicitly cleared. Separate from ownership: a cleared field stays
+   * reviewer-owned but must suppress base/source/planner/saved fallback until a new value is
+   * submitted. Persisted inside `input_data`, so it survives refreshes and reloads.
+   */
+  reviewer_cleared_fields?: string[];
 }
 
 export interface ActionPreviewData {

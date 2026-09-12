@@ -4,6 +4,13 @@ import { useState, useTransition, type CSSProperties, type ReactNode } from "rea
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { approveDetectedActions, rejectCommitment } from "@/app/actions/approvals";
+import {
+  clearAcceptedOverrides,
+  effectiveReviewerFields,
+  mergeAcceptedReadiness,
+  resolveEffectiveActionInput,
+  type ReadinessSnapshot,
+} from "@/lib/approvals/action-readiness";
 import { buttonStyle } from "@/components/ui/primitives";
 import type {
   ActionInputData,
@@ -190,8 +197,17 @@ export function ApprovalBar({ commitmentId, actions, hasDraftContent }: {
   const [selected, setSelected] = useState(() => new Set(actions
     .filter((action) => action.execution_state !== "created")
     .map((action) => action.id)));
-  const [inputs, setInputs] = useState<Record<string, ActionInputData>>(() =>
-    Object.fromEntries(actions.map((action) => [action.id, action.input_data ?? {}])));
+  // Only the reviewer's edits live in state. Persisted server readiness stays the base, so a
+  // router.refresh() after an approval updates the card instead of being shadowed by a stale
+  // snapshot — while unsaved edits on other actions are preserved.
+  const [overrides, setOverrides] = useState<Record<string, ActionInputData>>({});
+  // Explicit clear signal, separate from ownership: an emptied field suppresses persisted and
+  // source fallback until a new value is typed. Omission is NOT a clear.
+  const [cleared, setCleared] = useState<Record<string, Set<string>>>({});
+  // Server readiness returned by the last approval, tagged with the props it was based on.
+  // It makes normalized values visible immediately, but an intervening refresh makes newer
+  // authoritative props win; overrides (real reviewer edits) always take precedence.
+  const [serverReadiness, setServerReadiness] = useState<Record<string, ReadinessSnapshot>>({});
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ kind: "success" | "partial" | "error"; text: string } | null>(null);
   const [acting, setActing] = useState<"approve" | "discard" | null>(null);
@@ -207,15 +223,53 @@ export function ApprovalBar({ commitmentId, actions, hasDraftContent }: {
   }
 
   function updateInput(id: string, patch: ActionInputData) {
-    setInputs((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
+    setOverrides((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
+    setCleared((current) => {
+      const next = new Set(current[id] ?? []);
+      let changed = false;
+      for (const [key, value] of Object.entries(patch)) {
+        const isEmpty = value === "" || value === undefined;
+        if (isEmpty && !next.has(key)) { next.add(key); changed = true; }
+        if (!isEmpty && next.has(key)) { next.delete(key); changed = true; }
+      }
+      return changed ? { ...current, [id]: next } : current;
+    });
+  }
+
+  function inputFor(action: CommitmentActionSuggestion): ActionInputData {
+    return resolveEffectiveActionInput(action, serverReadiness[action.id], overrides[action.id]);
+  }
+
+  // Explicit provenance, not value inference: the fields this reviewer has touched locally,
+  // unioned with what the server already recorded as reviewer-edited.
+  function reviewerFieldsFor(action: CommitmentActionSuggestion): string[] {
+    return effectiveReviewerFields(action, serverReadiness[action.id], overrides[action.id]);
   }
 
   function execute(ids: string[]) {
     setMessage(null);
     setActing("approve");
+    const selectedActions = ids
+      .map((id) => actions.find((item) => item.id === id))
+      .filter((action): action is CommitmentActionSuggestion => action !== undefined);
+    const submitted = Object.fromEntries(selectedActions
+      .map((action) => [action.id, inputFor(action)]));
+    const editedFields = Object.fromEntries(selectedActions
+      .map((action) => [action.id, reviewerFieldsFor(action)]));
+    const clearedFields = Object.fromEntries(selectedActions
+      .map((action) => [action.id, [...(cleared[action.id] ?? [])]]));
     startTransition(async () => {
       try {
-        const result = await approveDetectedActions(commitmentId, ids, inputs);
+        const result = await approveDetectedActions(
+          commitmentId, ids, submitted, editedFields, clearedFields,
+        );
+        setServerReadiness((current) => mergeAcceptedReadiness(current, result.actions, actions));
+        setOverrides((current) => clearAcceptedOverrides(current, result.actions));
+        setCleared((current) => {
+          const next = { ...current };
+          for (const action of result.actions) if (action.inputData) delete next[action.id];
+          return next;
+        });
         if (result.complete) {
           setMessage({ kind: "success", text: "Actions created. Use the links below to open them." });
         } else if (result.actions.some((action) => action.state === "needs_info" || action.state === "schedule_conflict")) {
@@ -269,7 +323,7 @@ export function ApprovalBar({ commitmentId, actions, hasDraftContent }: {
         {orderedActions.map((action) => {
           const copy = ACTION_COPY[action.action_type];
           const isSelected = selected.has(action.id);
-          const data = inputs[action.id] ?? {};
+          const data = inputFor(action);
           const status = statusLabel(action, data, hasDraftContent);
           const locked = isPending || status === "Created" || status === "Executing";
           return <div key={action.id} className="detected-action-row"

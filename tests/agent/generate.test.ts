@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
-import { GenerationFailure, computeRetryDelayMs, generateObjectWithRetry } from "@/lib/agent/generate";
+import {
+  GATEWAY_FALLBACK_MODELS, GenerationFailure, computeRetryDelayMs, generateObjectWithRetry,
+} from "@/lib/agent/generate";
+import { EXTRACTION_MODEL } from "@/lib/agent/schema";
 import { logFailure } from "@/lib/observability/log";
 
 const schema = z.object({ ok: z.boolean() });
@@ -231,6 +234,27 @@ describe("generateObjectWithRetry retryability", () => {
     expect(output).toContain("attempt=1");
     expect(output).toContain("status=429");
     expect(output).not.toContain("SECRET TRANSCRIPT TEXT");
+  });
+});
+
+describe("gateway model fallback", () => {
+  it("keeps openai/gpt-4o-mini as the primary and configures a gateway fallback", () => {
+    expect(EXTRACTION_MODEL).toBe("openai/gpt-4o-mini");
+    expect(GATEWAY_FALLBACK_MODELS).toEqual(["google/gemini-2.5-flash-lite"]);
+    expect(GATEWAY_FALLBACK_MODELS).not.toContain(EXTRACTION_MODEL);
+  });
+
+  it("passes the fallback configuration through the shared generation path", async () => {
+    let captured: unknown;
+    const model = new MockLanguageModelV4({
+      doGenerate: async (options) => {
+        captured = options.providerOptions;
+        return reply({ ok: true });
+      },
+    });
+
+    await generateObjectWithRetry({ ...input, model });
+    expect(captured).toEqual({ gateway: { models: ["google/gemini-2.5-flash-lite"] } });
   });
 });
 

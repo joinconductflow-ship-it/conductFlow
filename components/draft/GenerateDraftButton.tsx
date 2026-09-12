@@ -22,8 +22,13 @@ export function GenerateDraftButton({ commitmentId, hasDraft }:
           onClick={() => {
             setError(null);
             startTransition(async () => {
-              try { await regenerateDraft(commitmentId); router.refresh(); }
-              catch (e) { setError(e instanceof Error ? e.message : "Drafting failed."); }
+              try {
+                const result = await regenerateDraft(commitmentId);
+                if (result.ok) router.refresh();
+                else setError(result.message ?? "The draft could not be written. Try again.");
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Drafting failed.");
+              }
             });
           }}
           // Fixed width: the label swaps while it runs, and the row must not jump.
@@ -40,8 +45,7 @@ export function GenerateDraftButton({ commitmentId, hasDraft }:
       </div>
       {error && (
         <p role="alert" style={{ color: "var(--danger-text)", marginTop: "var(--space-2)" }}>
-          The draft could not be written.{" "}
-          <span className="mono" style={{ color: "var(--muted)" }}>{error}</span>
+          {error}
         </p>
       )}
     </div>
