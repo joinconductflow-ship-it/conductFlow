@@ -29,14 +29,15 @@ import {
 } from "@/lib/approvals/action-selection";
 import {
   actionReadiness,
+  calendarScheduleChanged,
   calendarTitle,
   sanitizeActionInput,
+  sanitizeReviewerEditedFields,
   type ActionReadinessContext,
 } from "@/lib/approvals/action-readiness";
 import { inspectCalendarSchedule } from "@/lib/approvals/calendar-readiness";
 import type {
   ActionExecutionState,
-  ActionInputData,
   Commitment,
   CommitmentActionSuggestion,
   DeliverableDraft,
@@ -231,16 +232,12 @@ async function loadAuthorizedContext(
   };
 }
 
-function calendarMaterialChanged(saved: ActionInputData, submitted: ActionInputData): boolean {
-  return ["date", "start_time", "duration_minutes", "event_type", "person"]
-    .some((key) => submitted[key as keyof ActionInputData] !== undefined &&
-      submitted[key as keyof ActionInputData] !== saved[key as keyof ActionInputData]);
-}
-
 export async function approveDetectedActions(
   commitmentId: string,
   selectedActionIds: string[],
   submittedInputs: Record<string, unknown> = {},
+  reviewerEditedFields: Record<string, unknown> = {},
+  clearedFields: Record<string, unknown> = {},
 ): Promise<ApprovedActionRunResult> {
   const uid = await currentUserId();
   const { db: sessionDb, context } = await loadAuthorizedContext(commitmentId);
@@ -256,15 +253,25 @@ export async function approveDetectedActions(
 
   for (const suggestion of selected) {
     const submitted = sanitizeActionInput(suggestion.action_type, submittedInputs[suggestion.id]);
-    const materialCalendarChange = suggestion.action_type === "calendar_event" &&
-      calendarMaterialChanged(suggestion.input_data ?? {}, submitted);
-    const reviewSuggestion = materialCalendarChange
-      ? { ...suggestion, preview_data: {}, input_data: {
-        ...(suggestion.input_data ?? {}), conflict_confirmed: false,
-      } }
-      : suggestion;
-    const readiness = actionReadiness(reviewSuggestion, readinessContext, submitted);
-    if (materialCalendarChange) readiness.data.conflict_confirmed = false;
+    const reviewerFields = sanitizeReviewerEditedFields(reviewerEditedFields[suggestion.id]);
+    const cleared = sanitizeReviewerEditedFields(clearedFields[suggestion.id]);
+    let readiness = actionReadiness(suggestion, readinessContext, submitted, reviewerFields, cleared);
+    let materialCalendarChange = false;
+    if (suggestion.action_type === "calendar_event") {
+      // Compare the EFFECTIVE schedule (after provenance + any source correction) with what
+      // was persisted. Doing this after readiness is what stops a stale 18:00 -> source 16:00
+      // correction from reusing conflict state computed for the old 18:00 schedule.
+      materialCalendarChange = calendarScheduleChanged(suggestion.input_data ?? {}, readiness.data);
+      if (materialCalendarChange) {
+        const reviewSuggestion = { ...suggestion, preview_data: {}, input_data: {
+          ...(suggestion.input_data ?? {}), conflict_confirmed: false,
+        } };
+        readiness = actionReadiness(reviewSuggestion, readinessContext, submitted, reviewerFields, cleared);
+        // Empty preview drops schedule_conflict_confirmation from `missing`; forcing the flag
+        // false guarantees a fresh conflict inspection runs before any event is created.
+        readiness.data.conflict_confirmed = false;
+      }
+    }
     const state: ActionExecutionState = suggestion.external_id ? "created"
       : readiness.missing.includes("schedule_conflict_confirmation") ? "schedule_conflict"
         : readiness.ready ? "ready" : "needs_info";
@@ -293,7 +300,10 @@ export async function approveDetectedActions(
     return {
       actions: selected.map((suggestion) => {
         const action = prepared.get(suggestion.id)!;
-        return resultFor(action, action.execution_state ?? "needs_info");
+        return resultFor(action, action.execution_state ?? "needs_info", {
+          inputData: action.input_data,
+          missing: action.missing_data,
+        });
       }),
       complete: false,
     };
@@ -491,7 +501,19 @@ export async function approveDetectedActions(
 
   revalidatePath("/queue");
   revalidatePath(`/queue/${commitmentId}`);
-  return result;
+  // Carry the server-authoritative readiness back with the result so the review card can
+  // reflect it immediately, not only after a refresh.
+  return {
+    ...result,
+    actions: result.actions.map((action) => {
+      const preparedAction = prepared.get(action.id);
+      return {
+        ...action,
+        inputData: preparedAction?.input_data,
+        missing: preparedAction?.missing_data,
+      };
+    }),
+  };
 }
 
 export interface PushSummary {

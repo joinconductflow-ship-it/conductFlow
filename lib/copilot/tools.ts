@@ -7,10 +7,14 @@ import {
 } from "@/lib/db/queries";
 
 /**
- * Backend tools for the ConductFlow approval copilot. Read-only listing plus a
- * proposal step that PAUSES the run (interrupt: true) so the human confirms in
- * the chat UI before anything real happens — the actual Google API call still
- * only ever runs through the existing approveDetectedActions server action.
+ * Backend tools for the ConductFlow approval copilot. Read-only listing only.
+ *
+ * proposeAction is a pure FRONTEND human-in-the-loop tool (see
+ * ApprovalCopilotSidebar.tsx) and there is deliberately no backend execute tool:
+ * on Approve the proposal card calls the existing approveDetectedActions server
+ * action itself, so the language model never transports (and cannot mutate,
+ * omit, or reinterpret) the human-approved payload. approveDetectedActions stays
+ * the single execution choke point.
  */
 
 const listOpenCommitmentsParameters = z.object({});
@@ -55,62 +59,10 @@ export const listOpenCommitmentsTool = defineTool({
 // FRONTEND tool: the model calls it, the client pauses via a Promise and
 // renders the confirmation card, and respond() resolves that Promise, which
 // CopilotKit automatically feeds back to the agent as the tool result and
-// continues the run — no separate backend "interrupt" or resume call needed.
-// Declaring it here too (as a backend defineTool) was the original bug: it
-// fought with the frontend registration instead of letting CopilotKit's own
-// resume mechanism do its job.
-
-const executeApprovedActionParameters = z.object({
-  commitmentId: z.string(),
-  actionId: z.string(),
-  approved: z.boolean().describe("Must be true — only call this after human approval."),
-  date: z.string().optional(),
-  startTime: z.string().optional(),
-  durationMinutes: z.number().optional(),
-  documentTitle: z.string().optional(),
-  documentDetails: z.string().optional(),
-  relativeDateConfirmed: z.boolean().optional(),
-  conflictConfirmed: z.boolean().optional(),
-});
-
-/**
- * Calls the existing, already-battle-tested approveDetectedActions server
- * action. No Google/Supabase logic lives here — this is a thin bridge so the
- * agent's tool call ends up going through the exact same code path as the
- * manual queue UI.
- */
-export const executeApprovedActionTool = defineTool({
-  name: "executeApprovedAction",
-  description:
-    "Creates the previously proposed action for real (Calendar event, Drive doc, " +
-    "Gmail draft, or task) after the human has approved it. Only call this with " +
-    "approved: true, immediately after the human confirms a proposeAction call.",
-  parameters: executeApprovedActionParameters,
-  execute: async (args) => {
-    if (!args.approved) return { error: "Not approved — nothing was created." };
-    const { approveDetectedActions } = await import("@/app/actions/approvals");
-    const inputData: Record<string, unknown> = {};
-    if (args.date) inputData.date = args.date;
-    if (args.startTime) inputData.start_time = args.startTime;
-    if (args.durationMinutes) inputData.duration_minutes = args.durationMinutes;
-    if (args.documentTitle) inputData.document_title = args.documentTitle;
-    if (args.documentDetails) inputData.document_details = args.documentDetails;
-    if (args.relativeDateConfirmed) inputData.relative_date_confirmed = true;
-    if (args.conflictConfirmed) inputData.conflict_confirmed = true;
-    try {
-      const result = await approveDetectedActions(
-        args.commitmentId,
-        [args.actionId],
-        { [args.actionId]: inputData },
-      );
-      return result;
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : "Approval failed." };
-    }
-  },
-});
+// continues the run. Declaring it here too (as a backend defineTool) was the
+// original bug: it fought with the frontend registration instead of letting
+// CopilotKit's own resume mechanism do its job.
 
 export const copilotTools = [
   listOpenCommitmentsTool,
-  executeApprovedActionTool,
 ];

@@ -4,7 +4,12 @@ import { useState, type CSSProperties } from "react";
 import type { z } from "zod";
 import { CopilotSidebar, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { ToolCallStatus } from "@copilotkit/core";
-import { proposeActionParameters } from "@/lib/copilot/schemas";
+import { approveDetectedActions } from "@/app/actions/approvals";
+import {
+  proposeActionParameters,
+  runProposalDecision,
+  type ProposalValues,
+} from "@/lib/copilot/schemas";
 
 const cardStyle: CSSProperties = {
   border: "1px solid var(--border-strong, #444)",
@@ -41,12 +46,11 @@ type ProposalArgs = z.infer<typeof proposeActionParameters>;
 /**
  * The "wow" surface: proposeAction is a pure FRONTEND human-in-the-loop tool
  * (see lib/copilot/tools.ts for why it's not a backend tool). The model calls
- * it, this pauses the run via a Promise, renders the exact proposed action as
- * a real preview card (not a JSON dump), and respond() resolves that Promise
- * — CopilotKit feeds the result back to the agent and continues the run
- * automatically. Only after an explicit Approve does the model go on to call
- * executeApprovedAction, the bridge into the existing approveDetectedActions
- * server action.
+ * it, this pauses the run via a Promise, and renders the exact proposed action
+ * as a real preview card (not a JSON dump). On Approve, the card builds the
+ * authoritative payload from UI state and calls the existing
+ * approveDetectedActions server action itself — then responds, which is what
+ * resumes the run, so the model only ever narrates the already-executed result.
  */
 function ProposalCard() {
   useHumanInTheLoop<ProposalArgs>({
@@ -56,13 +60,13 @@ function ProposalCard() {
       "internal task for a commitment. commitmentId and actionId MUST come from a " +
       "prior listOpenCommitments call in this conversation — call listOpenCommitments " +
       "first if you haven't already, even if the human named the commitment; never " +
-      "invent or guess these ids. This does NOT create anything by itself — it " +
-      "pauses so the human can review and approve or reject. The result you get back " +
-      "is {approved: boolean}. If approved is true, you MUST immediately call " +
-      "executeApprovedAction next, in the same turn, passing the same " +
-      "commitmentId/actionId/fields plus approved: true — do not just describe " +
-      "success in text, actually call the tool. If approved is false, tell the human " +
-      "it was skipped and do not call executeApprovedAction.",
+      "invent or guess these ids. This pauses so the human can review, edit, and " +
+      "approve or reject. Approval executes the action automatically in the UI, before " +
+      "this tool returns — there is no execute tool to call. The result you get back " +
+      "is {approved: boolean, execution?: {actions, complete}} describing what was " +
+      "already created (or the error). Do NOT call any other tool to create the " +
+      "action, and never restate or alter the executed values. If approved is false, " +
+      "tell the human it was skipped.",
     parameters: proposeActionParameters,
     render: ({ status, args, respond }) => {
       if (status !== ToolCallStatus.Executing || !respond) {
@@ -81,15 +85,83 @@ const ACTION_TITLE: Record<ProposalArgs["actionType"], string> = {
   internal_task: "Track as internal task",
 };
 
+const fieldStyle: CSSProperties = {
+  width: "100%",
+  padding: "5px 7px",
+  borderRadius: 6,
+  border: "1px solid var(--border-strong, #444)",
+  background: "var(--surface, #111)",
+  color: "var(--text, #eee)",
+  fontSize: 13,
+};
+
 function ProposalCardBody({ args, respond }: {
   args: ProposalArgs;
   respond: (result: unknown) => Promise<void>;
 }) {
   const [state, setState] = useState<"pending" | "sent">("pending");
+  // Ownership is tracked by which fields the human touched, independent of the value, so a
+  // cleared field is still reviewer-owned and cannot fall back to a source default. Clearing
+  // itself is tracked separately: only an explicitly emptied field is in `cleared`.
+  const [touched, setTouched] = useState<Set<string>>(() => new Set());
+  const [cleared, setCleared] = useState<Set<string>>(() => new Set());
+  const [values, setValues] = useState<ProposalValues>(() => ({
+    date: args.date ?? "",
+    startTime: args.startTime ?? "",
+    durationMinutes: args.durationMinutes !== undefined ? String(args.durationMinutes) : "",
+    documentTitle: args.documentTitle ?? "",
+    documentDetails: args.documentDetails ?? "",
+  }));
+
+  function patch(key: keyof ProposalValues, value: string) {
+    setTouched((current) => {
+      if (current.has(key)) return current;
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+    setCleared((current) => {
+      const isEmpty = value === "";
+      if (isEmpty && !current.has(key)) return new Set(current).add(key);
+      if (!isEmpty && current.has(key)) {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      }
+      return current;
+    });
+    setValues((current) => ({ ...current, [key]: value }));
+  }
 
   async function decide(approved: boolean) {
     setState("sent");
-    await respond({ approved });
+    // Build and execute the authoritative payload from UI state, then resume the run with the
+    // result. The model never carries the approved values or provenance.
+    const result = await runProposalDecision(
+      approved,
+      { commitmentId: args.commitmentId, actionId: args.actionId },
+      values,
+      [...touched],
+      [...cleared],
+      async (payload) => {
+        try {
+          return await approveDetectedActions(
+            payload.commitmentId,
+            [payload.actionId],
+            { [payload.actionId]: payload.inputData },
+            payload.reviewerEditedFields.length > 0
+              ? { [payload.actionId]: payload.reviewerEditedFields }
+              : {},
+            payload.clearedFields.length > 0
+              ? { [payload.actionId]: payload.clearedFields }
+              : {},
+          );
+        } catch (error) {
+          return { error: error instanceof Error ? error.message : "Approval failed." };
+        }
+      },
+    );
+    await respond(result);
   }
 
   return <div style={cardStyle}>
@@ -98,15 +170,35 @@ function ProposalCardBody({ args, respond }: {
       <span style={labelStyle}>{args.actionType}</span>
     </div>
     <p style={{ margin: 0 }}>{args.summary}</p>
-    {args.actionType === "calendar_event" && (args.date || args.startTime) && (
-      <div style={{ display: "grid", gap: 2 }}>
-        {args.date && <span style={labelStyle}>Date: <span style={{ color: "var(--text, #eee)" }}>{args.date}</span></span>}
-        {args.startTime && <span style={labelStyle}>Time: <span style={{ color: "var(--text, #eee)" }}>{args.startTime}</span></span>}
-        {args.durationMinutes && <span style={labelStyle}>Duration: <span style={{ color: "var(--text, #eee)" }}>{args.durationMinutes} min</span></span>}
+    {args.actionType === "calendar_event" && (
+      <div style={{ display: "grid", gap: 6 }}>
+        <label style={labelStyle}>Date
+          <input type="date" value={values.date} onChange={(e) => patch("date", e.target.value)}
+            style={{ ...fieldStyle, marginTop: 2 }} />
+        </label>
+        <label style={labelStyle}>Time
+          <input type="time" value={values.startTime} onChange={(e) => patch("startTime", e.target.value)}
+            style={{ ...fieldStyle, marginTop: 2 }} />
+        </label>
+        <label style={labelStyle}>Duration, min
+          <input type="number" min={5} max={1440} step={5} value={values.durationMinutes}
+            onChange={(e) => patch("durationMinutes", e.target.value)}
+            style={{ ...fieldStyle, marginTop: 2 }} />
+        </label>
       </div>
     )}
-    {args.actionType === "drive_document" && args.documentTitle && (
-      <span style={labelStyle}>Title: <span style={{ color: "var(--text, #eee)" }}>{args.documentTitle}</span></span>
+    {args.actionType === "drive_document" && (
+      <div style={{ display: "grid", gap: 6 }}>
+        <label style={labelStyle}>Title
+          <input value={values.documentTitle} onChange={(e) => patch("documentTitle", e.target.value)}
+            style={{ ...fieldStyle, marginTop: 2 }} />
+        </label>
+        <label style={labelStyle}>Details
+          <textarea value={values.documentDetails} rows={3}
+            onChange={(e) => patch("documentDetails", e.target.value)}
+            style={{ ...fieldStyle, marginTop: 2, resize: "vertical" }} />
+        </label>
+      </div>
     )}
     {state === "pending" ? (
       <div style={buttonRowStyle}>

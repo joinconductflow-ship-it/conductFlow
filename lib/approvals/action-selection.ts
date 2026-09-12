@@ -1,5 +1,6 @@
 import type {
   ActionExecutionState,
+  ActionInputData,
   CommitmentActionSuggestion,
   SuggestedActionType,
 } from "@/lib/types";
@@ -11,6 +12,10 @@ export interface ActionExecutionResult {
   externalId?: string | null;
   externalUrl?: string | null;
   error?: string | null;
+  /** Server-authoritative readiness inputs, so the review card can reflect them after a round trip. */
+  inputData?: ActionInputData;
+  /** Fields still missing, matching `inputData`, for the same reason. */
+  missing?: string[];
 }
 
 export interface ApprovedActionRunResult {

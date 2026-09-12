@@ -244,6 +244,25 @@ describe("independent sections and safe fallbacks", () => {
     expect(html).not.toContain("Track commitment");
   });
 
+  it("exposes the relative-date confirmation a persisted calendar action requires", async () => {
+    rows.commitment_action_suggestion = [{
+      id: ID, org_id: ORG, commitment_id: ID, action_type: "calendar_event",
+      confidence: "high", rationale: "Schedule the promised meeting",
+      required_data: ["start_time"], missing_data: ["relative_date_confirmation"],
+      input_data: {
+        date: "2026-09-15", start_time: "16:00", duration_minutes: 60,
+        relative_date: true, event_type: "Meeting", person: "Client",
+      },
+      created_at: DATE,
+    }];
+
+    const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));
+    expect(html).toContain("Confirm interpreted date");
+    expect(html).toContain("Needs confirmation");
+    // The persisted, server-normalized value is what the card shows, not a stale local copy.
+    expect(html).toContain('value="16:00"');
+  });
+
   it("shows a recipient-less Gmail draft as ready when its content exists", async () => {
     rows.commitment_action_suggestion = [{
       ...rows.commitment_action_suggestion[0],

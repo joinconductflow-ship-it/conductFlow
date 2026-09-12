@@ -10,6 +10,37 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const RELATIVE_DATE_RE = /\b(today|tomorrow|tonight|this\s+(?:week|morning|evening)|next\s+(?:week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|by\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i;
 
+const ACTION_INPUT_KEYS: ReadonlySet<string> = new Set([
+  "recipient", "event_type", "person", "date", "start_time", "duration_minutes", "time_zone",
+  "location", "notes", "recurrence_rule", "recurrence_text", "relative_date",
+  "relative_date_confirmed", "recurrence_confirmed", "conflict_confirmed", "document_title",
+  "document_summary", "document_body", "document_details",
+]);
+
+/**
+ * The set of fields a reviewer has explicitly edited. This is real provenance, not an
+ * equality inference: the client records which fields the reviewer touched, and it is
+ * persisted in `input_data.reviewer_edited_fields` so it survives a refresh or reload.
+ * Unknown or duplicate entries are dropped.
+ */
+export function sanitizeReviewerEditedFields(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const fields = value.filter((field): field is string =>
+    typeof field === "string" && ACTION_INPUT_KEYS.has(field));
+  return [...new Set(fields)];
+}
+
+/** The schedule fields whose change invalidates a previously computed conflict preview. */
+const CALENDAR_SCHEDULE_FIELDS = ["date", "start_time", "duration_minutes", "event_type", "person"] as const;
+
+/** True when the effective schedule differs from what was persisted for this action. */
+export function calendarScheduleChanged(
+  saved: ActionInputData,
+  effective: ActionInputData,
+): boolean {
+  return CALENDAR_SCHEDULE_FIELDS.some((key) => effective[key] !== saved[key]);
+}
+
 export interface ActionReadinessContext {
   commitment: Commitment;
   clientName: string;
@@ -161,14 +192,64 @@ export function sanitizeActionInput(type: SuggestedActionType, value: unknown): 
   return result;
 }
 
+/**
+ * The inputs a review card should show: the server-persisted readiness with the reviewer's
+ * current edits layered on top. Persisted server data is the base (so a refresh updates the
+ * card), while edits live only in local state and are never lost to a prop change.
+ */
+export function resolveActionInput(
+  persisted: ActionInputData | undefined,
+  override: ActionInputData | undefined,
+): ActionInputData {
+  return { ...(persisted ?? {}), ...(override ?? {}) };
+}
+
 export function actionReadiness(
   suggestion: CommitmentActionSuggestion,
   context: ActionReadinessContext,
   submitted?: unknown,
+  reviewerEditedFields?: unknown,
+  clearedFields?: unknown,
 ): ActionReadiness {
   const base = initialActionData(suggestion.action_type, context);
   const saved = suggestion.input_data ?? {};
-  const data = { ...base, ...saved, ...sanitizeActionInput(suggestion.action_type, submitted) };
+  const submittedData = sanitizeActionInput(suggestion.action_type, submitted);
+
+  // Ownership (provenance) and clearing are separate, explicit concepts. Ownership is sticky
+  // and never inferred from values. Clearing must be signalled explicitly: omission is NOT a
+  // clear, so a previously reviewer-owned value survives an approval that doesn't resubmit it.
+  const persistedOwned = sanitizeReviewerEditedFields(saved.reviewer_edited_fields);
+  const persistedCleared = sanitizeReviewerEditedFields(saved.reviewer_cleared_fields);
+  const submittedOwned = sanitizeReviewerEditedFields(reviewerEditedFields);
+  const clearedNow = sanitizeReviewerEditedFields(clearedFields);
+  const reviewerOwns = new Set<string>([
+    ...persistedOwned, ...persistedCleared, ...submittedOwned, ...clearedNow,
+  ]);
+
+  // A provided value always supersedes a previous clear; otherwise persisted and this-round
+  // clears both suppress fallback.
+  const effectiveCleared = new Set<string>();
+  for (const field of [...persistedCleared, ...clearedNow]) {
+    if (submittedData[field as keyof ActionInputData] === undefined) effectiveCleared.add(field);
+  }
+
+  const data = { ...base, ...saved, ...submittedData };
+  if (suggestion.action_type === "calendar_event" &&
+      !reviewerOwns.has("start_time") && base.start_time !== undefined) {
+    // A source-derived schedule must not be permanently shadowed by a stale persisted value.
+    // When the commitment states a time and the reviewer has never edited start_time, the
+    // freshly parsed value wins (e.g. an old 18:00 for a commitment that said 4 PM). Once the
+    // reviewer edits start_time, provenance keeps their value across every later approval.
+    data.start_time = base.start_time;
+  }
+  // Only an explicit clear removes fallback/persisted data. Omission leaves everything intact.
+  for (const field of effectiveCleared) {
+    delete data[field as keyof ActionInputData];
+  }
+  if (reviewerOwns.size > 0) data.reviewer_edited_fields = [...reviewerOwns];
+  else delete data.reviewer_edited_fields;
+  if (effectiveCleared.size > 0) data.reviewer_cleared_fields = [...effectiveCleared];
+  else delete data.reviewer_cleared_fields;
   const missing: string[] = [];
 
   if (suggestion.action_type === "gmail_draft") {
@@ -193,6 +274,93 @@ export function actionReadiness(
   }
 
   return { data, missing, ready: missing.length === 0 };
+}
+
+/** A snapshot of server readiness, tagged with the props it was derived from. */
+export interface ReadinessSnapshot {
+  value: ActionInputData;
+  basedOn: string;
+}
+
+type SignatureSource = Pick<CommitmentActionSuggestion,
+  "execution_state" | "input_data" | "missing_data" | "preview_data">;
+
+/** Identifies the server props a snapshot was based on, so a later refresh can supersede it. */
+export function actionReadinessSignature(action: SignatureSource): string {
+  return JSON.stringify([
+    action.execution_state ?? "",
+    action.input_data ?? {},
+    action.missing_data ?? [],
+    action.preview_data ?? {},
+  ]);
+}
+
+/**
+ * Records the server's accepted readiness so the review card shows normalized values
+ * immediately, before the refreshed props arrive. The snapshot is tagged with the props it
+ * was based on; once refreshed props differ, `resolveEffectiveActionInput` stops applying it,
+ * so newer authoritative data is never permanently shadowed.
+ */
+export function mergeAcceptedReadiness(
+  snapshots: Record<string, ReadinessSnapshot>,
+  results: ReadonlyArray<{ id: string; inputData?: ActionInputData }>,
+  currentActions: ReadonlyArray<{ id: string } & SignatureSource>,
+): Record<string, ReadinessSnapshot> {
+  const signatures = new Map(currentActions.map((action) => [action.id, actionReadinessSignature(action)]));
+  const next = { ...snapshots };
+  for (const result of results) {
+    if (result.inputData) {
+      next[result.id] = { value: result.inputData, basedOn: signatures.get(result.id) ?? "" };
+    }
+  }
+  return next;
+}
+
+/** Drops only the local overrides the server accepted/persisted, so refresh can take over. */
+export function clearAcceptedOverrides(
+  overrides: Record<string, ActionInputData>,
+  results: ReadonlyArray<{ id: string; inputData?: ActionInputData }>,
+): Record<string, ActionInputData> {
+  const next = { ...overrides };
+  for (const result of results) {
+    if (result.inputData) delete next[result.id];
+  }
+  return next;
+}
+
+/**
+ * The effective inputs for one action: authoritative server props, plus a response snapshot
+ * only while those props are unchanged, plus the reviewer's current edits. Once `refresh`
+ * delivers different props the snapshot's signature no longer matches and it is ignored.
+ */
+export function resolveEffectiveActionInput(
+  action: SignatureSource,
+  snapshot: ReadinessSnapshot | undefined,
+  override: ActionInputData | undefined,
+): ActionInputData {
+  const snapshotApplies = snapshot !== undefined &&
+    snapshot.basedOn === actionReadinessSignature(action);
+  return resolveActionInput(
+    { ...(action.input_data ?? {}), ...(snapshotApplies ? snapshot.value : {}) },
+    override,
+  );
+}
+
+/** Explicit provenance for an action, using the snapshot only while it still matches props. */
+export function effectiveReviewerFields(
+  action: SignatureSource,
+  snapshot: ReadinessSnapshot | undefined,
+  override: ActionInputData | undefined,
+): string[] {
+  const snapshotApplies = snapshot !== undefined &&
+    snapshot.basedOn === actionReadinessSignature(action);
+  const accepted = snapshotApplies
+    ? snapshot.value.reviewer_edited_fields
+    : action.input_data?.reviewer_edited_fields;
+  return [...new Set([
+    ...sanitizeReviewerEditedFields(accepted),
+    ...Object.keys(override ?? {}),
+  ])];
 }
 
 export function calendarTitle(data: ActionInputData): string {

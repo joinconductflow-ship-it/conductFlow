@@ -19,6 +19,16 @@ import { logFailure } from "@/lib/observability/log";
 const MAX_PROVIDER_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 500;
 const MAX_BACKOFF_DELAY_MS = 8_000;
+
+/**
+ * Vercel AI Gateway model fallbacks, tried in order after the primary `model` is
+ * unavailable or rate-limited. The primary stays whatever the caller passed (for every
+ * production path that is `EXTRACTION_MODEL`, openai/gpt-4o-mini); this only adds a second
+ * model so a persistent 429 on the primary is not the end of the generation. Uses the
+ * Gateway's documented `providerOptions.gateway.models` request option.
+ */
+export const GATEWAY_FALLBACK_MODELS = ["google/gemini-2.5-flash-lite"] as const;
+
 // A provider asking for longer than this does not want us back soon. This is a synchronous
 // ingest path and the production function timeout is unconfirmed, so holding the invocation
 // open is worse than surfacing the failure.
@@ -213,6 +223,9 @@ export async function generateObjectWithRetry<T extends z.ZodType>(
       prompt: input.prompt,
       output: Output.object({ schema: input.schema }),
       maxRetries: 0,
+      providerOptions: {
+        gateway: { models: [...GATEWAY_FALLBACK_MODELS] },
+      },
     });
     return output as z.infer<T>;
   };
