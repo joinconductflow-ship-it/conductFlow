@@ -13,8 +13,14 @@ import { detectEscalations } from "@/lib/agent/escalate";
 import { detectExceptions } from "@/lib/ops/exceptions";
 import { buildOperationsMap } from "@/lib/ops/map";
 import { logFailure } from "@/lib/observability/log";
+import { mapWithConcurrency } from "@/lib/ingest/concurrency";
 import type { AgentContract } from "@/lib/agent/contract";
 import type { Commitment, Task } from "@/lib/types";
+
+// One transcript otherwise fires one model call per commitment all at once (up to
+// MAX_COMMITMENTS = 50), which the provider rate-limits as a burst. Three keeps the
+// fan-out under the limit while still finishing a long transcript promptly.
+const INGEST_MODEL_CONCURRENCY = 3;
 
 export interface IngestArgs {
   orgId: string; clientId: string; clientName: string;
@@ -238,7 +244,7 @@ async function finishIngestAfterExtraction(
   // Provider execution state on these rows is server-owned. The org was already proven by
   // the RLS-backed commitment writes above, so only this protected insert uses service role.
   const suggestionDb = getServiceClient();
-  const planned = await Promise.allSettled(pairs.map(async ({ id, commitment: c }) => {
+  const planned = await mapWithConcurrency(pairs, INGEST_MODEL_CONCURRENCY, async ({ id, commitment: c }) => {
     const plan = await planCommitmentActions({
       commitmentText: c.text,
       owner: c.owner,
@@ -263,7 +269,7 @@ async function finishIngestAfterExtraction(
     }
 
     return { id, actions: plan.actions };
-  }));
+  });
 
   const gmailDraftIds = new Set<string>();
   let actionCount = 0;
@@ -280,11 +286,11 @@ async function finishIngestAfterExtraction(
     }
   }
 
-  const scopeChecks = await Promise.allSettled(pairs.map(async ({ id, commitment: c }) => {
+  const scopeChecks = await mapWithConcurrency(pairs, INGEST_MODEL_CONCURRENCY, async ({ id, commitment: c }) => {
     const result = await gateCommitmentScope(db,
       { id, org_id: ctx.orgId, client_id: ctx.clientId, text: c.text }, {}, model);
     return { id, result };
-  }));
+  });
   const outOfScopeIds = new Set<string>();
   for (const check of scopeChecks) {
     if (check.status === "rejected") { logFailure("finishIngest.scopeCheck", check.reason); continue; }
@@ -314,10 +320,10 @@ async function finishIngestAfterExtraction(
     : { templateText: null, meetingContext: null, sources: [] as string[] };
 
   // A draft failing is not an ingest failing — that commitment keeps the empty-draft state.
+  const draftTargets = pairs.filter(({ id }) =>
+    gmailDraftIds.has(id) && !outOfScopeIds.has(id));
   const drafts = draftDecision.ok
-    ? await Promise.allSettled(pairs.filter(({ id }) =>
-      gmailDraftIds.has(id) && !outOfScopeIds.has(id),
-    ).map(async ({ id, commitment: c }) => {
+    ? await mapWithConcurrency(draftTargets, INGEST_MODEL_CONCURRENCY, async ({ id, commitment: c }) => {
       const draft = await generateFollowUpDraft({
         templateText: context.templateText, meetingContext: context.meetingContext,
         commitmentText: c.text, clientName: ctx.clientName,
@@ -328,10 +334,16 @@ async function finishIngestAfterExtraction(
         subject: draft.subject, body: draft.body,
       });
       if (error) throw error;
-    }))
+    })
     : [];
-  for (const d of drafts) {
-    if (d.status === "rejected") logFailure("finishIngest.draft", d.reason);
+  for (const [index, d] of drafts.entries()) {
+    if (d.status === "rejected") {
+      const commitmentId = draftTargets[index]?.id ?? "unknown";
+      logFailure(
+        `finishIngest.draft commitment_id=${commitmentId} action_type=gmail_draft`,
+        d.reason,
+      );
+    }
   }
   const draftCount = drafts.filter((d) => d.status === "fulfilled").length;
 

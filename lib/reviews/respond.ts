@@ -57,6 +57,7 @@ export async function respondToReview(
       reviewerName: args.reviewerName ?? null, source: args.source ?? null,
     }),
     schema: reviewResponseSchema,
+    operation: "review_response",
   });
 
   const { error: updateError } = await db.from("received_review").update({

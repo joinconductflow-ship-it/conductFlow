@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { initialActionData } from "@/lib/approvals/action-readiness";
-import type { Commitment } from "@/lib/types";
+import { actionReadiness, initialActionData } from "@/lib/approvals/action-readiness";
+import type { Commitment, CommitmentActionSuggestion } from "@/lib/types";
 
 function commitment(deadline: string | null): Commitment {
   return {
@@ -39,5 +39,39 @@ describe("initialActionData", () => {
     });
 
     expect(data.date).toBeUndefined();
+  });
+});
+
+describe("actionReadiness", () => {
+  it("allows a Gmail draft with a blank recipient when subject and body exist", () => {
+    const suggestion: CommitmentActionSuggestion = {
+      id: "suggestion-1",
+      org_id: "org-1",
+      commitment_id: "commitment-1",
+      action_type: "gmail_draft",
+      confidence: "high",
+      rationale: "A follow-up draft was requested.",
+      required_data: ["recipient", "subject", "body"],
+      missing_data: ["recipient"],
+      execution_state: "proposed",
+      created_at: "2026-09-12T00:00:00.000Z",
+    };
+
+    const readiness = actionReadiness(suggestion, {
+      commitment: commitment(null),
+      clientName: "Client",
+      draft: {
+        id: "draft-1",
+        org_id: "org-1",
+        commitment_id: "commitment-1",
+        kind: "email",
+        subject: "Follow-up",
+        body: "Here is the requested follow-up.",
+        created_at: "2026-09-12T00:00:00.000Z",
+      },
+    });
+
+    expect(readiness.ready).toBe(true);
+    expect(readiness.missing).toEqual([]);
   });
 });

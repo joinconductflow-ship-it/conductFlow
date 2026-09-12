@@ -238,6 +238,46 @@ describe("independent sections and safe fallbacks", () => {
     expect(html).not.toContain("Create draft");
     expect(html).not.toContain("Track commitment");
   });
+
+  it("shows a recipient-less Gmail draft as ready when its content exists", async () => {
+    rows.commitment_action_suggestion = [{
+      ...rows.commitment_action_suggestion[0],
+      required_data: ["recipient", "subject", "body"],
+      missing_data: ["recipient"],
+    }];
+
+    const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));
+    expect(html).toContain("Create draft");
+    expect(html).toContain("Ready");
+    expect(html).not.toContain("Needs info");
+    expect(html).not.toContain("Draft required");
+  });
+
+  it("shows a retry-oriented empty state when a Gmail draft is missing", async () => {
+    rows.deliverable_draft = [];
+
+    const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));
+    expect(html).toContain("Draft generation did not finish");
+    expect(html).toContain("Try writing the draft again");
+    expect(html).toContain("Draft required");
+    expect(html).not.toContain("Needs info");
+  });
+
+  it("does not claim draft generation failed for a non-Gmail commitment", async () => {
+    rows.deliverable_draft = [];
+    rows.commitment_action_suggestion = [{
+      ...rows.commitment_action_suggestion[0],
+      action_type: "internal_task",
+      rationale: "Track the internal work.",
+      required_data: ["task_title"],
+      missing_data: [],
+    }];
+
+    const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));
+    expect(html).toContain("No email draft was requested for this commitment");
+    expect(html).not.toContain("Draft generation did not finish");
+    expect(html).not.toContain("draft call did not succeed");
+  });
   it("does not call a query outage a missing commitment", async () => {
     failing.add("commitment");
     const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));

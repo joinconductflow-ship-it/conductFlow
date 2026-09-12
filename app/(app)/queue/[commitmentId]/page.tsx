@@ -44,6 +44,9 @@ export default async function DraftReview({ params }: { params: Promise<{ commit
   const c = commitmentResult.data;
   const draft = draftResult.data;
   const transcript = transcriptResult.data;
+  const actionSuggestions = actionSuggestionsResult.data ?? [];
+  const expectsEmailDraft = actionSuggestions.some((action) => action.action_type === "gmail_draft");
+  const hasDraftContent = !!draft?.subject?.trim() && !!draft.body?.trim();
 
   if (commitmentResult.unavailable) return <main style={pageStyle}>
     <BackLink href="/queue">Queue</BackLink>
@@ -100,13 +103,21 @@ export default async function DraftReview({ params }: { params: Promise<{ commit
 
           {transcriptResult.unavailable && <Unavailable section="Source review is" />}
           {draftResult.unavailable ? <Unavailable section="The draft is" /> : <>
-            <DraftSurface draft={draft} provenance={["transcript", "client record"]} />
+            <DraftSurface
+              draft={draft}
+              provenance={["transcript", "client record"]}
+              expectsEmailDraft={expectsEmailDraft}
+            />
             <GenerateDraftButton commitmentId={c.id} hasDraft={!!draft} />
           </>}
           {actionSuggestionsResult.unavailable && <Unavailable section="Detected actions are" />}
           {!draftResult.unavailable && !transcriptResult.unavailable &&
             !actionSuggestionsResult.unavailable && (
-              <ApprovalBar commitmentId={c.id} actions={actionSuggestionsResult.data ?? []} />
+              <ApprovalBar
+                commitmentId={c.id}
+                actions={actionSuggestions}
+                hasDraftContent={hasDraftContent}
+              />
             )}
         </div>
 

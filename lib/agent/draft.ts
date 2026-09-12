@@ -22,5 +22,7 @@ export async function generateFollowUpDraft(
     system: DRAFT_SYSTEM_PROMPT,
     prompt: buildDraftPrompt(input),
     schema: draftSchema,
+    operation: "draft",
+    actionType: "gmail_draft",
   });
 }

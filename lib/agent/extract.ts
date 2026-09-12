@@ -51,6 +51,7 @@ async function callWithOneRetry(input: ExtractInput, model?: LanguageModel) {
     system: EXTRACTION_SYSTEM_PROMPT,
     prompt: buildExtractionPrompt(input),
     schema: extractionSchema,
+    operation: "extract",
   });
 }
 

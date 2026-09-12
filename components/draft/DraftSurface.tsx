@@ -5,8 +5,8 @@ import { Badge, proseStyle } from "@/components/ui/primitives";
  * The artifact under review. It gets an accent rail and its own surface so there is never
  * a question about which words on this page were written by a machine.
  */
-export function DraftSurface({ draft, provenance }:
-  { draft: DeliverableDraft | null; provenance: string[] }) {
+export function DraftSurface({ draft, provenance, expectsEmailDraft }:
+  { draft: DeliverableDraft | null; provenance: string[]; expectsEmailDraft: boolean }) {
   return (
     <section style={{
       background: "var(--surface)",
@@ -38,10 +38,13 @@ export function DraftSurface({ draft, provenance }:
             )}
             <p style={{ ...proseStyle, whiteSpace: "pre-wrap" }}>{draft.body}</p>
           </>
+        ) : expectsEmailDraft ? (
+          <p style={{ ...proseStyle, color: "var(--muted)" }}>
+            Draft generation did not finish. Try writing the draft again.
+          </p>
         ) : (
           <p style={{ ...proseStyle, color: "var(--muted)" }}>
-            No draft for this commitment. Drafts are written during ingest; this one&apos;s
-            draft call did not succeed. Approving still creates the task.
+            No email draft was requested for this commitment.
           </p>
         )}
       </div>

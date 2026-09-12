@@ -59,6 +59,7 @@ export async function triageInquiry(
     system: LEAD_TRIAGE_SYSTEM_PROMPT,
     prompt: buildLeadTriagePrompt({ rawInquiry: args.rawInquiry }),
     schema: leadTriageSchema,
+    operation: "lead_triage",
   });
 
   const { error: updateError } = await db.from("prospect").update({

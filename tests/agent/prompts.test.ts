@@ -60,4 +60,18 @@ describe("action planning prompt", () => {
     expect(prompt).toContain("<<UNTRUSTED_DATA>>");
     expect(prompt).toContain("Schedule a follow-up");
   });
+
+  it("routes authored artifacts such as study guides to Drive documents", () => {
+    expect(ACTION_PLAN_SYSTEM_PROMPT).toMatch(/study guide[^\n]+suggest drive_document/i);
+  });
+
+  it("routes explicit scheduling to Calendar even when scheduling data is missing", () => {
+    expect(ACTION_PLAN_SYSTEM_PROMPT).toMatch(/schedule or reschedule[^\n]+suggest calendar_event/i);
+    expect(ACTION_PLAN_SYSTEM_PROMPT).toMatch(/calendar_event[^\n]+date, time, duration, or attendees are missing/i);
+  });
+
+  it("does not let a missing Gmail recipient or internal task suppress a concrete action", () => {
+    expect(ACTION_PLAN_SYSTEM_PROMPT).toMatch(/missing recipient must not reduce confidence or suppress gmail_draft/i);
+    expect(ACTION_PLAN_SYSTEM_PROMPT).toMatch(/internal_task may coexist[^\n]+must not replace/i);
+  });
 });

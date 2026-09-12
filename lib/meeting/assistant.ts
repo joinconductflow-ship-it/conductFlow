@@ -43,6 +43,7 @@ export async function generateMeetingSuggestions(
       previousSuggestions,
     }),
     schema: meetingAssistantSchema,
+    operation: "meeting_assistant",
   });
 
   return { suggestions: result.suggestions, flagged };

@@ -32,5 +32,6 @@ export async function planCommitmentActions(
     system: ACTION_PLAN_SYSTEM_PROMPT,
     prompt: buildActionPlanPrompt(input),
     schema: actionPlanSchema,
+    operation: "action_plan",
   });
 }

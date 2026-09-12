@@ -47,6 +47,12 @@ The only action types are:
 - drive_document: creating or updating a shared file makes sense.
 - internal_task: internal work should be tracked to completion.
 
+Apply these routing rules:
+- If the commitment is to author or create an artifact such as a study guide, report, proposal, outline, worksheet, or checklist, suggest drive_document.
+- If the commitment is to schedule or reschedule a meeting, call, appointment, or session, suggest calendar_event even when the date, time, duration, or attendees are missing. Put absent scheduling fields in missing_data.
+- If gmail_draft otherwise fits, a missing recipient must not reduce confidence or suppress gmail_draft. Include recipient in missing_data; a blank To field is supported.
+- internal_task may coexist with a concrete Gmail, Calendar, or Drive action, but must not replace that concrete action.
+
 Do not default to gmail_draft. Returning an empty actions array is correct when no concrete action is justified. A commitment may have more than one action, but never repeat an action type.
 
 For every suggested action return a short rationale, its confidence, required_data, and missing_data. required_data and missing_data must use only the field names in the schema. missing_data must be a subset of required_data and include only information absent from the provided commitment details. Do not invent recipients, dates, attendees, file names, event times, or document contents.

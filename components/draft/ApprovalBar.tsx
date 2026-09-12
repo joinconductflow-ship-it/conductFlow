@@ -52,7 +52,11 @@ function ActionIcon({ type }: { type: SuggestedActionType }) {
     borderRadius: "var(--radius-sm)", background: "var(--surface)", flexShrink: 0 }}>{icons[type]}</span>;
 }
 
-function statusLabel(action: CommitmentActionSuggestion, data: ActionInputData): string {
+function statusLabel(
+  action: CommitmentActionSuggestion,
+  data: ActionInputData,
+  hasDraftContent: boolean,
+): string {
   const state = action.execution_state ?? "proposed";
   if (state === "created") return "Created";
   if (state === "executing") return "Executing";
@@ -60,6 +64,9 @@ function statusLabel(action: CommitmentActionSuggestion, data: ActionInputData):
   if (state === "blocked") return "Blocked";
   if (state === "reconnect_google") return "Reconnect Google";
   if (state === "schedule_conflict" && !data.conflict_confirmed) return "Schedule conflict";
+  if (action.action_type === "gmail_draft") {
+    return hasDraftContent ? "Ready" : "Draft required";
+  }
   if (action.action_type === "calendar_event") {
     if (!data.date || !data.start_time || !data.duration_minutes) return "Needs info";
     if (data.relative_date && !data.relative_date_confirmed) return "Needs confirmation";
@@ -68,7 +75,6 @@ function statusLabel(action: CommitmentActionSuggestion, data: ActionInputData):
   if (action.action_type === "drive_document" && action.missing_data.includes("document_details") && !data.document_details) {
     return "Needs info";
   }
-  if (action.missing_data.length > 0 && action.action_type === "gmail_draft") return "Needs info";
   return "Ready";
 }
 
@@ -173,9 +179,10 @@ function DriveFields({ action, value, disabled, onChange }: {
   </div>;
 }
 
-export function ApprovalBar({ commitmentId, actions }: {
+export function ApprovalBar({ commitmentId, actions, hasDraftContent }: {
   commitmentId: string;
   actions: CommitmentActionSuggestion[];
+  hasDraftContent: boolean;
 }) {
   const router = useRouter();
   const orderedActions = [...actions].sort((a, b) =>
@@ -263,7 +270,7 @@ export function ApprovalBar({ commitmentId, actions }: {
           const copy = ACTION_COPY[action.action_type];
           const isSelected = selected.has(action.id);
           const data = inputs[action.id] ?? {};
-          const status = statusLabel(action, data);
+          const status = statusLabel(action, data, hasDraftContent);
           const locked = isPending || status === "Created" || status === "Executing";
           return <div key={action.id} className="detected-action-row"
             style={{ display: "grid", gridTemplateColumns: "30px minmax(0, 1fr) auto",

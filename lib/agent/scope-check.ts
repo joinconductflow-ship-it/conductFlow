@@ -25,6 +25,7 @@ async function callWithOneRetry(input: ScopeCheckInput, model?: LanguageModel) {
     system: SCOPE_CHECK_SYSTEM_PROMPT,
     prompt: buildScopeCheckPrompt(input),
     schema: scopeCheckSchema,
+    operation: "scope_check",
   });
 }
 

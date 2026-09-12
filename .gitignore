@@ -46,3 +46,7 @@ prod-kek-backup.txt
 
 # gstack working files (terminal tokens, ports, reports) — never committed
 .gstack/
+
+# Local AI/dev tools
+.codex/
+.serena/
