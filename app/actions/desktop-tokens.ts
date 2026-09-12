@@ -2,53 +2,62 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentOrgId, getCurrentUser } from "@/lib/db/queries";
-import { getServerClient } from "@/lib/db/server";
 import { getServiceClient } from "@/lib/db/service";
+import { logFailure } from "@/lib/observability/log";
 import { mintToken, revokeToken } from "@/lib/auth/desktop-token";
 
 const ROUTE = "/settings/desktop";
 
 /**
- * Mints a desktop token and returns the plaintext exactly once.
+ * Results are returned, not thrown.
  *
- * Membership is established through the caller's own session first — the service
- * client is used only for the insert, because `desktop_token` deliberately grants no
- * insert to `authenticated`. The plaintext half must never be writable through
- * PostgREST, so this server action is the single place it can be created.
+ * Next redacts the message of any error thrown out of a server action in a production
+ * build, replacing it with "An error occurred in the Server Components render". That is
+ * right for unexpected failures and useless for the ones a user can act on — "sign in
+ * again" and "the database is unreachable" arrive looking identical. Anything the caller
+ * should read comes back as a value; only genuinely unexpected faults are allowed to
+ * throw, and those are logged server-side first so they are diagnosable at all.
  */
-export async function createDesktopToken(formData: FormData): Promise<{ token: string }> {
+export type TokenResult =
+  | { ok: true; token: string }
+  | { ok: false; message: string };
+
+export async function createDesktopToken(formData: FormData): Promise<TokenResult> {
   const orgId = await getCurrentOrgId(ROUTE);
-  if (!orgId) throw new Error("Sign in to create a desktop token.");
+  if (!orgId) return { ok: false, message: "Sign in again — your session has expired." };
 
   const user = await getCurrentUser(ROUTE);
-  if (!user) throw new Error("Sign in to create a desktop token.");
+  if (!user) return { ok: false, message: "Sign in again — your session has expired." };
 
   const label = String(formData.get("label") ?? "").trim() || "My Mac";
 
-  // Confirm the session really does belong to this org before escalating. RLS would
-  // catch it, but the check is cheap and the escalation below bypasses RLS entirely.
-  const db = await getServerClient();
-  const { data: membership, error } = await db
-    .from("membership").select("org_id").eq("org_id", orgId).maybeSingle();
-  if (error) throw new Error(`could not verify your membership: ${error.message}`);
-  if (!membership) throw new Error("You are not a member of this organisation.");
-
-  const { token } = await mintToken(getServiceClient(), {
-    orgId, userId: user.id, label,
-  });
-
-  revalidatePath(ROUTE);
-  return { token };
+  // getCurrentOrgId resolves this org *from* the membership table, filtered to
+  // user_id = auth.uid() by RLS. Membership is therefore already proven, and a second
+  // lookup here added no safety while giving the action one more way to fail.
+  try {
+    const { token } = await mintToken(getServiceClient(), { orgId, userId: user.id, label });
+    revalidatePath(ROUTE);
+    return { ok: true, token };
+  } catch (error) {
+    logFailure(`${ROUTE}: mint desktop token`, error);
+    return { ok: false, message: "Could not create a token just now. Please try again." };
+  }
 }
 
-export async function revokeDesktopToken(formData: FormData): Promise<void> {
+export async function revokeDesktopToken(formData: FormData): Promise<TokenResult> {
   const orgId = await getCurrentOrgId(ROUTE);
-  if (!orgId) throw new Error("Sign in to revoke a desktop token.");
+  if (!orgId) return { ok: false, message: "Sign in again — your session has expired." };
 
   const tokenId = String(formData.get("tokenId") ?? "").trim();
-  if (!tokenId) throw new Error("Which token?");
+  if (!tokenId) return { ok: false, message: "Which token?" };
 
-  // Scoped to the caller's org, so a guessed id from another org revokes nothing.
-  await revokeToken(getServiceClient(), { orgId, tokenId });
-  revalidatePath(ROUTE);
+  try {
+    // Scoped to the caller's org, so a guessed id from another org revokes nothing.
+    await revokeToken(getServiceClient(), { orgId, tokenId });
+    revalidatePath(ROUTE);
+    return { ok: true, token: "" };
+  } catch (error) {
+    logFailure(`${ROUTE}: revoke desktop token`, error);
+    return { ok: false, message: "Could not revoke that token. Please try again." };
+  }
 }

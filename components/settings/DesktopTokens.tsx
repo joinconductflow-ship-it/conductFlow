@@ -34,14 +34,23 @@ export function DesktopTokens({ tokens }: { tokens: TokenRow[] }) {
 
   async function onCreate(formData: FormData) {
     setError(null);
-    try {
-      const { token } = await createDesktopToken(formData);
-      setFresh(token);
-      setCopied(false);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create that token.");
+    // The action returns its failures rather than throwing them, so the message
+    // survives a production build instead of being redacted by Next.
+    const result = await createDesktopToken(formData);
+    if (!result.ok) {
+      setError(result.message);
+      return;
     }
+    setFresh(result.token);
+    setCopied(false);
+    router.refresh();
+  }
+
+  async function onRevoke(formData: FormData) {
+    setError(null);
+    const result = await revokeDesktopToken(formData);
+    if (!result.ok) setError(result.message);
+    else router.refresh();
   }
 
   return (
@@ -109,7 +118,7 @@ export function DesktopTokens({ tokens }: { tokens: TokenRow[] }) {
                     </div>
                   </div>
                   {!t.last_used_at && <Badge tone="neutral">unused</Badge>}
-                  <form action={(fd) => start(() => { void revokeDesktopToken(fd); })}>
+                  <form action={(fd) => start(() => { void onRevoke(fd); })}>
                     <input type="hidden" name="tokenId" value={t.id} />
                     <button type="submit" disabled={pending} style={buttonStyle("secondary", pending)}>
                       Revoke
