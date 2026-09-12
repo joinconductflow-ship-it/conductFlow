@@ -18,6 +18,11 @@ export const CAPABILITIES = {
     detail: "Writes drafts you send yourself. ConductFlow never sends anything.",
     scopes: ["https://www.googleapis.com/auth/gmail.compose"],
   },
+  gmail_watch: {
+    label: "Watch my inbox for new commitments",
+    detail: "Reads incoming mail from your known clients and adds anything they ask for to your queue. Nothing is sent or shared — matched messages only ever become a proposed commitment you still approve.",
+    scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+  },
 } as const;
 
 export type Capability = keyof typeof CAPABILITIES;
