@@ -16,7 +16,13 @@ env.allowRemoteModels = true;
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL("wasm/");
-env.backends.onnx.wasm.numThreads = 1;
+// Extension pages (chrome-extension:// origins) are cross-origin isolated by default, so
+// SharedArrayBuffer and multi-threaded WASM are available here without extra headers. Pinning
+// this to 1 thread made whisper-tiny's per-chunk inference slower than the 15-second window it
+// transcribes, so the transcript queue fell further behind the longer capture ran.
+env.backends.onnx.wasm.numThreads = typeof crossOriginIsolated !== "undefined" && crossOriginIsolated
+  ? Math.min(4, navigator.hardwareConcurrency || 4)
+  : 1;
 
 type Transcriber = Awaited<ReturnType<typeof pipeline>>;
 
@@ -90,6 +96,11 @@ function getTranscriber(): Promise<Transcriber> {
       device: "wasm",
       dtype: "q8",
       progress_callback: modelProgress,
+      // The onnxruntime-web dev build @huggingface/transformers pins has a QDQ-to-MatMulNBits
+      // fusion bug that fails session creation for this model's quantized embed_tokens weight
+      // ("Missing required scale: ...embed_tokens.weight_merged_0_scale"). That fusion only
+      // runs at optimization level "all"; "basic" keeps normal perf optimizations without it.
+      session_options: { graphOptimizationLevel: "basic" },
     }).then((instance) => {
       sendToBackground({ type: "MODEL_READY" });
       return instance;
@@ -138,11 +149,29 @@ async function resample(input: Float32Array, sourceRate: number): Promise<Float3
   return new Float32Array(rendered.getChannelData(0));
 }
 
+// Whisper was not trained to recognize silence as "nothing said" — fed a near-silent chunk
+// (paused/muted tab, dead air), it commonly hallucinates, most often as one token repeated for
+// the whole chunk ("so so so so…"). Skipping transcription for chunks below this energy floor
+// avoids that outright, rather than trying to clean up the hallucinated text afterward.
+const SILENCE_RMS_THRESHOLD = 0.005;
+
+function rootMeanSquare(samples: Float32Array): number {
+  let sumOfSquares = 0;
+  for (const sample of samples) sumOfSquares += sample * sample;
+  return Math.sqrt(sumOfSquares / samples.length);
+}
+
 function enqueueChunk(samples: Float32Array, sourceRate: number, generation: number): void {
+  if (rootMeanSquare(samples) < SILENCE_RMS_THRESHOLD) return;
+
   workChain = workChain.then(async () => {
     const audio = await resample(samples, sourceRate);
     const transcriber = await getTranscriber();
-    const result = await transcriber(audio, { return_timestamps: false });
+    // no_repeat_ngram_size/repetition_penalty are a second line of defense: quiet background
+    // noise that clears the silence gate above but still has little real speech can otherwise
+    // trigger the same repeated-token degeneration.
+    const result = await transcriber(audio,
+      { return_timestamps: false, no_repeat_ngram_size: 3, repetition_penalty: 1.3 });
     if (generation !== captureGeneration) return;
 
     const text = Array.isArray(result)
