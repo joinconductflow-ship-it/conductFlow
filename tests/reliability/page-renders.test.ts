@@ -22,6 +22,7 @@ import Scope from "@/app/(app)/scope/page";
 import Reports from "@/app/(app)/reports/page";
 import Settings from "@/app/(app)/settings/page";
 import Blueprint from "@/app/(app)/settings/blueprint/page";
+import DesktopSettings from "@/app/(app)/settings/desktop/page";
 import DraftReview from "@/app/(app)/queue/[commitmentId]/page";
 import Layout from "@/app/(app)/layout";
 import Onboarding from "@/app/(app)/onboarding/page";
@@ -130,6 +131,7 @@ const pages = [
   { route: "/reports", render: Reports, tables: ["time_entry", "invoice", "client_contact", "billing_rate"] },
   { route: "/settings", render: () => Settings({ searchParams: Promise.resolve({}) }), tables: ["connected_data_source_public"] },
   { route: "/settings/blueprint", render: Blueprint, tables: ["agent_blueprint", "membership:role"] },
+  { route: "/settings/desktop", render: DesktopSettings, tables: ["desktop_token_public"] },
   { route: "/queue/[commitmentId]", render: () => DraftReview({ params: Promise.resolve({ commitmentId: ID }) }), tables: ["commitment", "deliverable_draft", "transcript", "commitment_action_suggestion"] },
 ];
 
