@@ -112,6 +112,22 @@ export default async function SettingsPage({ searchParams }:
           </Link>
         </div>
       </Card>
+
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between",
+          alignItems: "flex-start", gap: "var(--space-4)", flexWrap: "wrap" }}>
+          <div>
+            <CardTitle>Desktop app</CardTitle>
+            <p style={{ color: "var(--muted)", marginTop: "var(--space-2)", maxWidth: "56ch" }}>
+              Capture a conversation from anywhere on your Mac with a keyboard shortcut.
+              It reads your clipboard when you ask it to, and nothing else.
+            </p>
+          </div>
+          <Link href="/settings/desktop" className="cf-btn" style={buttonStyle("secondary")}>
+            Set up the desktop app
+          </Link>
+        </div>
+      </Card>
       </div>
     </main>
   );
