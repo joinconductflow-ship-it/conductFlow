@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import type { z } from "zod";
 import { CopilotSidebar, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { ToolCallStatus } from "@copilotkit/core";
+import { proposeActionParameters } from "@/lib/copilot/schemas";
 
 const cardStyle: CSSProperties = {
   border: "1px solid var(--border-strong, #444)",
@@ -34,36 +36,42 @@ function actionButton(kind: "approve" | "reject"): CSSProperties {
   };
 }
 
+type ProposalArgs = z.infer<typeof proposeActionParameters>;
+
 /**
- * The "wow" surface: proposeAction pauses the agent run (see lib/copilot/tools.ts).
- * This renders the exact proposed action as a real preview card, not a JSON dump,
- * and only calls executeApprovedAction — the bridge into the existing
- * approveDetectedActions server action — once a human clicks Approve.
+ * The "wow" surface: proposeAction is a pure FRONTEND human-in-the-loop tool
+ * (see lib/copilot/tools.ts for why it's not a backend tool). The model calls
+ * it, this pauses the run via a Promise, renders the exact proposed action as
+ * a real preview card (not a JSON dump), and respond() resolves that Promise
+ * — CopilotKit feeds the result back to the agent and continues the run
+ * automatically. Only after an explicit Approve does the model go on to call
+ * executeApprovedAction, the bridge into the existing approveDetectedActions
+ * server action.
  */
 function ProposalCard() {
-  useHumanInTheLoop({
+  useHumanInTheLoop<ProposalArgs>({
     name: "proposeAction",
-    description: "Confirm before creating a Calendar event, Drive doc, Gmail draft, or task.",
+    description:
+      "Proposes creating one Google Calendar event, Drive document, Gmail draft, or " +
+      "internal task for a commitment. commitmentId and actionId MUST come from a " +
+      "prior listOpenCommitments call in this conversation — call listOpenCommitments " +
+      "first if you haven't already, even if the human named the commitment; never " +
+      "invent or guess these ids. This does NOT create anything by itself — it " +
+      "pauses so the human can review and approve or reject. The result you get back " +
+      "is {approved: boolean}. If approved is true, you MUST immediately call " +
+      "executeApprovedAction next, in the same turn, passing the same " +
+      "commitmentId/actionId/fields plus approved: true — do not just describe " +
+      "success in text, actually call the tool. If approved is false, tell the human " +
+      "it was skipped and do not call executeApprovedAction.",
+    parameters: proposeActionParameters,
     render: ({ status, args, respond }) => {
       if (status !== ToolCallStatus.Executing || !respond) {
         return <div style={cardStyle}>Proposal resolved.</div>;
       }
-      return <ProposalCardBody args={args as unknown as ProposalArgs} respond={respond} />;
+      return <ProposalCardBody args={args as ProposalArgs} respond={respond} />;
     },
   });
   return null;
-}
-
-interface ProposalArgs {
-  commitmentId: string;
-  actionId: string;
-  actionType: "calendar_event" | "drive_document" | "gmail_draft" | "internal_task";
-  summary: string;
-  date?: string;
-  startTime?: string;
-  durationMinutes?: number;
-  documentTitle?: string;
-  documentDetails?: string;
 }
 
 const ACTION_TITLE: Record<ProposalArgs["actionType"], string> = {

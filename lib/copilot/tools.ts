@@ -21,7 +21,9 @@ export const listOpenCommitmentsTool = defineTool({
     "Lists commitments awaiting review for the signed-in user's organization, " +
     "including each commitment's suggested actions (calendar_event, drive_document, " +
     "gmail_draft, internal_task) and what input each action still needs before it " +
-    "can be approved. Read-only — creates or changes nothing.",
+    "can be approved. Read-only — creates or changes nothing. You MUST call this " +
+    "before proposeAction to get the real commitmentId and actionId — never guess " +
+    "or invent an id, even if the human already told you which commitment they mean.",
   parameters: listOpenCommitmentsParameters,
   execute: async () => {
     const orgId = await getCurrentOrgId("copilot: listOpenCommitments");
@@ -48,47 +50,15 @@ export const listOpenCommitmentsTool = defineTool({
   },
 });
 
-const proposeActionParameters = z.object({
-  commitmentId: z.string().describe("The commitment this action belongs to."),
-  actionId: z.string().describe("The suggested action's id, from listOpenCommitments."),
-  actionType: z.enum(["calendar_event", "drive_document", "gmail_draft", "internal_task"]),
-  summary: z.string().describe(
-    "One plain-English sentence describing exactly what will be created, for the " +
-    "human to read before approving — e.g. \"Calendar event 'Makeup session — Priya " +
-    "Sharma' on Sep 16 at 3:00 PM for 30 minutes.\"",
-  ),
-  date: z.string().optional().describe("YYYY-MM-DD, for calendar_event."),
-  startTime: z.string().optional().describe("24h HH:MM, for calendar_event."),
-  durationMinutes: z.number().optional().describe("For calendar_event."),
-  documentTitle: z.string().optional().describe("For drive_document."),
-  documentDetails: z.string().optional().describe(
-    "What the document should include, for drive_document, if not already known.",
-  ),
-});
-
-/**
- * Interrupt tool: the model calls this to propose one action. The run pauses
- * here — no execute() — and resumes only once the human responds in the chat
- * UI (see ApprovalCopilotSidebar's useHumanInTheLoop). Splitting "propose"
- * from "execute" is what keeps this a real approval gate instead of the model
- * silently deciding to act.
- */
-export const proposeActionTool = defineTool({
-  name: "proposeAction",
-  description:
-    "Proposes creating one Google Calendar event, Drive document, Gmail draft, or " +
-    "internal task for a commitment. This does NOT create anything by itself — it " +
-    "pauses so the human can review and approve or reject in the chat UI. The tool " +
-    "result you get back after the human responds is {approved: boolean}. If " +
-    "approved is true, you MUST immediately call executeApprovedAction next, in the " +
-    "same turn, passing the same commitmentId/actionId/fields plus approved: true — " +
-    "do not just describe success in text, actually call the tool. If approved is " +
-    "false, tell the human it was skipped and do not call executeApprovedAction.",
-  parameters: proposeActionParameters,
-  interrupt: true,
-  interruptReason: "action_approval",
-  interruptMessage: "Review the proposed action before it is created.",
-});
+// proposeAction is intentionally NOT a backend tool. CopilotKit's
+// useHumanInTheLoop (see ApprovalCopilotSidebar.tsx) registers it as a pure
+// FRONTEND tool: the model calls it, the client pauses via a Promise and
+// renders the confirmation card, and respond() resolves that Promise, which
+// CopilotKit automatically feeds back to the agent as the tool result and
+// continues the run — no separate backend "interrupt" or resume call needed.
+// Declaring it here too (as a backend defineTool) was the original bug: it
+// fought with the frontend registration instead of letting CopilotKit's own
+// resume mechanism do its job.
 
 const executeApprovedActionParameters = z.object({
   commitmentId: z.string(),
@@ -142,6 +112,5 @@ export const executeApprovedActionTool = defineTool({
 
 export const copilotTools = [
   listOpenCommitmentsTool,
-  proposeActionTool,
   executeApprovedActionTool,
 ];
