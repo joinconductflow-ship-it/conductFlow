@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { getCurrentOrgId } from "@/lib/db/queries";
+import { SlackConnections } from "@/components/settings/SlackConnections";
+import { listChannelMappings } from "@/app/actions/slack-channels";
+import { getCurrentOrgId, listClients } from "@/lib/db/queries";
 import { getServerClient } from "@/lib/db/server";
-import { readPageQuery } from "@/lib/db/page-read";
+import { readPageData, readPageQuery } from "@/lib/db/page-read";
 import { Unavailable } from "@/components/ui/Unavailable";
 import { CAPABILITIES, type Capability } from "@/lib/google/scopes";
 import { ConnectionList } from "@/components/settings/ConnectionList";
@@ -12,7 +14,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export interface ConnectionRow {
-  id: string; account_email: string; scopes: string[];
+  id: string; provider: string; account_email: string; scopes: string[];
   state: string; created_at: string;
 }
 
@@ -38,9 +40,15 @@ export default async function SettingsPage({ searchParams }:
   // granted to service_role alone.
   const db = await getServerClient();
   const connections = await readPageQuery("/settings: connected_data_source_public", () => db.from("connected_data_source_public")
-    .select("id,account_email,scopes,state,created_at").eq("org_id", orgId));
+    .select("id,provider,account_email,scopes,state,created_at").eq("org_id", orgId));
   const rows = (connections.data ?? []) as ConnectionRow[];
-  const granted = new Set(rows.filter((r) => r.state === "active").flatMap((r) => r.scopes));
+  const googleRows = rows.filter((row) => row.provider === "google");
+  const slackRows = rows.filter((row) => row.provider === "slack" && row.state === "active");
+  const [clients, mappings] = await Promise.all([
+    readPageData("/settings: clients", () => slackRows.length ? listClients(orgId) : Promise.resolve([])),
+    readPageData("/settings: Slack mappings", () => slackRows.length ? listChannelMappings(orgId) : Promise.resolve([])),
+  ]);
+  const granted = new Set(googleRows.filter((r) => r.state === "active").flatMap((r) => r.scopes));
 
   const capabilities = (Object.keys(CAPABILITIES) as Capability[]).map((key) => ({
     key,
@@ -53,7 +61,7 @@ export default async function SettingsPage({ searchParams }:
       <div style={column}>
       <PageHeader
         title="Settings"
-        lede="Connect Google one capability at a time. Each asks for the narrowest access that does the job, and you can revoke any of them here."
+        lede="Connect Google capabilities and map Slack channels to your clients."
       />
 
       {connected && (
@@ -67,7 +75,7 @@ export default async function SettingsPage({ searchParams }:
       )}
       {error && (
         <Card tone="danger" style={{ marginBottom: "var(--space-4)" }}>
-          <CardTitle tone="danger" dot>Google refused that connection</CardTitle>
+          <CardTitle tone="danger" dot>Connection failed</CardTitle>
           <p className="mono" style={{ color: "var(--muted)", fontSize: "var(--text-sm)",
             marginTop: "var(--space-2)", wordBreak: "break-word" }}>
             {error}
@@ -76,7 +84,15 @@ export default async function SettingsPage({ searchParams }:
       )}
 
       <SectionHeading>Google capabilities</SectionHeading>
-      {connections.unavailable ? <Unavailable section="Google connections are" /> : <ConnectionList capabilities={capabilities} connections={rows} />}
+      {connections.unavailable ? <Unavailable section="Google connections are" /> : <ConnectionList capabilities={capabilities} connections={googleRows} />}
+
+      <div style={{ marginTop: "var(--space-7)" }}>
+        <SectionHeading>Slack</SectionHeading>
+        {connections.unavailable || clients.unavailable || mappings.unavailable
+          ? <Unavailable section="Slack connections are" />
+          : <SlackConnections orgId={orgId} connections={slackRows} clients={clients.data ?? []}
+            mappings={(mappings.data ?? []).filter((mapping) => slackRows.some((row) => row.id === mapping.connected_data_source_id))} />}
+      </div>
 
       <div style={{ marginTop: "var(--space-7)" }}>
         <SectionHeading>Permissions</SectionHeading>
