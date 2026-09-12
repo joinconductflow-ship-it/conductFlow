@@ -101,6 +101,14 @@ class FakeGmailClient implements GmailClient {
     this.fetched.push(draftId);
     return { exists: this.options.exists ?? true };
   }
+
+  async listMessages() {
+    return [];
+  }
+
+  async getMessage() {
+    return null;
+  }
 }
 
 function seed(overrides: { draft?: Row; client?: Row } = {}) {
@@ -129,12 +137,17 @@ describe("the no-send guarantee", () => {
     expect(source).not.toMatch(/send/i);
   });
 
-  it("exposes exactly two endpoints, neither of which can post a message", () => {
-    expect(Object.keys(GMAIL_ENDPOINTS)).toEqual(["createDraft", "getDraft"]);
+  it("exposes exactly four endpoints, none of which can post or send a message", () => {
+    expect(Object.keys(GMAIL_ENDPOINTS)).toEqual(
+      ["createDraft", "getDraft", "listMessages", "getMessage"]);
     expect(GMAIL_ENDPOINTS.createDraft)
       .toBe("https://gmail.googleapis.com/gmail/v1/users/me/drafts");
     expect(GMAIL_ENDPOINTS.getDraft)
       .toBe("https://gmail.googleapis.com/gmail/v1/users/me/drafts/{id}");
+    expect(GMAIL_ENDPOINTS.listMessages)
+      .toBe("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+    expect(GMAIL_ENDPOINTS.getMessage)
+      .toBe("https://gmail.googleapis.com/gmail/v1/users/me/messages/{id}");
   });
 });
 

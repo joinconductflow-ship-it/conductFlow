@@ -24,6 +24,7 @@ const LIMITS: Record<string, string> = {
   drive_templates: "Cannot see any other file in your Drive.",
   calendar_context: "Read-only. Cannot create, move, or cancel anything.",
   gmail_drafts: "Only writes drafts. ConductFlow has no ability to send mail at all.",
+  gmail_watch: "Read-only. Cannot send, delete, or modify anything in your inbox.",
 };
 
 const STATE_TONE: Record<string, "ok" | "warn" | "danger" | "neutral"> = {
@@ -72,14 +73,16 @@ export function ConnectionList({ capabilities, connections }:
                   </Badge>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)",
-                  flexWrap: "wrap", marginTop: "var(--space-3)" }}>
-                  <span aria-hidden style={{ color: "var(--faint)",
-                    fontSize: "var(--text-sm)" }}>✕</span>
-                  <span style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>
-                    {LIMITS[c.key]}
-                  </span>
-                </div>
+                {LIMITS[c.key] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)",
+                    flexWrap: "wrap", marginTop: "var(--space-3)" }}>
+                    <span aria-hidden style={{ color: "var(--faint)",
+                      fontSize: "var(--text-sm)" }}>✕</span>
+                    <span style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>
+                      {LIMITS[c.key]}
+                    </span>
+                  </div>
+                )}
 
                 <div style={{ display: "flex", justifyContent: "space-between",
                   alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap",

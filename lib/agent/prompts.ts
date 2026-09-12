@@ -24,7 +24,8 @@ A commitment is a promise one party made to do something. Extract only promises 
 
 For each commitment:
 - text: the promise as an imperative task, without a speaker prefix.
-- owner: who owes it, verbatim as named in the transcript. Null if nobody was named.
+- owner: who owes it, verbatim as named in the transcript. The person who asked for something is not automatically the owner of doing it — a client's request is owed by whoever received it, not by the client who made it. Only name the client (or any other requester) as owner when they explicitly commit to doing something themselves, such as providing a document, making a payment, or showing up. Null if the transcript never names whoever is expected to fulfill the request — do not default to the requester's name just to fill the field.
+  Example: a one-sided message from a client, "Priya", reading "Can you send the revised practice set by Friday?" with no reply yet contains one commitment — text "send the revised practice set", owner null (nobody who would fulfill it was named — Priya is the one asking, not the one who owes it), not owner "Priya".
 - deadline: an absolute date in YYYY-MM-DD form, resolved against the conversation date you are given. Never return a relative phrase like "Friday". Resolve every relative phrase you are given, using these rules:
   - "today", "this morning", "this evening", "tonight" → the conversation date itself.
   - "tomorrow" → the conversation date plus one day.

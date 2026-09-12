@@ -7,6 +7,7 @@ import {
 import { CommitmentList } from "@/components/queue/CommitmentList";
 import { NeedsAttention } from "@/components/queue/NeedsAttention";
 import { EscalationStrip } from "@/components/queue/EscalationStrip";
+import { GmailScanButton } from "@/components/queue/GmailScanButton";
 import { PageHeader, EmptyState, buttonStyle, pageStyle } from "@/components/ui/primitives";
 
 export default async function QueuePage() {
@@ -41,6 +42,8 @@ export default async function QueuePage() {
           ? `${needsReview} awaiting review · ${items.length} total`
           : undefined}
       />
+
+      <GmailScanButton />
 
       {/* Escalations first: a complaint outranks the queue it came from. */}
       {escalations.unavailable ? <Unavailable section="Escalations are" /> : <EscalationStrip items={escalations.data ?? []} />}

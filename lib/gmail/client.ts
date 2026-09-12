@@ -1,12 +1,15 @@
 const API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 
 /**
- * Every Gmail URL this codebase knows. Two entries: create a draft, read a draft back.
- * Adding a third would be a diff a reviewer cannot miss, and a test asserts the shape.
+ * Every Gmail URL this codebase knows. `listMessages`/`getMessage` are read-only additions
+ * for the inbox watcher (lib/gmail/watch.ts) — a test asserts the full shape, so adding a
+ * fifth endpoint is still a diff a reviewer cannot miss.
  */
 export const GMAIL_ENDPOINTS = {
   createDraft: `${API_BASE}/drafts`,
   getDraft: `${API_BASE}/drafts/{id}`,
+  listMessages: `${API_BASE}/messages`,
+  getMessage: `${API_BASE}/messages/{id}`,
 } as const;
 
 export type GmailErrorKind =
@@ -55,9 +58,27 @@ export class GmailServerError extends GmailError {
   readonly retryable = true;
 }
 
+export interface GmailMessagePart {
+  mimeType?: string;
+  headers?: { name: string; value: string }[];
+  body?: { data?: string; size?: number };
+  parts?: GmailMessagePart[];
+}
+
+export interface GmailMessage {
+  id: string;
+  threadId: string;
+  /** Epoch milliseconds, as a decimal string — this is the format Gmail returns it in. */
+  internalDate: string;
+  payload: GmailMessagePart;
+}
+
 export interface GmailClient {
   createDraft(raw: string): Promise<{ draftId: string; messageId: string }>;
   getDraft(draftId: string): Promise<{ exists: boolean }>;
+  /** IDs only — fetch each one with getMessage for headers and body. */
+  listMessages(query: string, maxResults: number): Promise<{ id: string }[]>;
+  getMessage(messageId: string): Promise<GmailMessage | null>;
 }
 
 export interface GmailClientOptions {
@@ -166,6 +187,23 @@ export function createGmailClient(
         { method: "GET" },
       );
       return { exists: response.status !== 404 };
+    },
+
+    async listMessages(query: string, maxResults: number) {
+      const params = new URLSearchParams({ q: query, maxResults: String(maxResults) });
+      const response = await request(`${GMAIL_ENDPOINTS.listMessages}?${params}`, { method: "GET" });
+      if (response.status === 404) return [];
+      const payload = await response.json() as { messages?: { id: string }[] };
+      return payload.messages ?? [];
+    },
+
+    async getMessage(messageId: string) {
+      const response = await request(
+        `${GMAIL_ENDPOINTS.getMessage.replace("{id}", encodeURIComponent(messageId))}?format=full`,
+        { method: "GET" },
+      );
+      if (response.status === 404) return null;
+      return await response.json() as GmailMessage;
     },
   };
 }
