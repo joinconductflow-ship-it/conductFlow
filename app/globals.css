@@ -785,6 +785,8 @@ button:hover:not(:disabled),
 }
 
 @media (max-width: 560px) {
+  .cf-nav-copilot-label { display: none; }
+
   .detected-action-row {
     grid-template-columns: 30px minmax(0, 1fr) !important;
   }
