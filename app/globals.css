@@ -676,6 +676,18 @@ button:hover:not(:disabled),
     grid-column: 2;
     text-align: left !important;
   }
+
+  /* Narrow viewports collapse each day cell to just the date and a row of urgency
+     dots — the title/label cards need room this width doesn't have. */
+  .task-calendar-day { min-height: 56px !important; padding: var(--space-1) !important; }
+  .task-calendar-card { display: none !important; }
+  .task-calendar-dots { display: flex !important; }
+}
+
+.task-calendar-dots {
+  display: none;
+  flex-wrap: wrap;
+  gap: 3px;
 }
 
 @keyframes cf-pulse {
