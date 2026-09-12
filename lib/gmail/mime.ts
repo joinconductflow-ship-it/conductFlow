@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 const CRLF = "\r\n";
 
 export interface MessageParts {
-  to: string;
+  to: string | null | undefined;
   from: string;
   subject: string;
   body: string;
@@ -59,12 +59,13 @@ function wrapBase64(encoded: string): string {
  * 998-octet line limit and quoted-printable's soft-break rules entirely.
  */
 export function buildRawMessage(parts: MessageParts): string {
-  assertHeaderSafe(parts.to, "Recipient address");
+  const recipient = parts.to ?? "";
+  assertHeaderSafe(recipient, "Recipient address");
   assertHeaderSafe(parts.from, "From address");
   assertHeaderSafe(parts.subject, "Subject");
 
   const headers = [
-    `To: ${parts.to}`,
+    `To: ${recipient}`,
     `From: ${parts.from}`,
     `Subject: ${encodeSubject(parts.subject)}`,
     "MIME-Version: 1.0",

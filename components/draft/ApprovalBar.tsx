@@ -8,13 +8,12 @@ import { buttonStyle } from "@/components/ui/primitives";
 const SILENT_REASONS = new Set(["missing", "revoked", "no draft to push"]);
 
 // The codes are precise and worth keeping in the audit trail, but a person reading a review
-// screen should not have to know what "skipped_no_recipient" means to act on it.
+// screen should not have to know their internal names to act on them.
 const REASON_TEXT: Record<string, string> = {
   turned_off: "Your blueprint has “place a draft in your Gmail drafts folder” set to never.",
   needs_approval: "That action needs approval before it can run.",
   prohibited: "That action is prohibited and cannot be enabled.",
   unknown_action: "The assistant asked for an action this blueprint does not define.",
-  skipped_no_recipient: "This client has no email address, so there was nowhere to write to.",
 };
 
 export function ApprovalBar({ commitmentId }: { commitmentId: string }) {
@@ -29,7 +28,7 @@ export function ApprovalBar({ commitmentId }: { commitmentId: string }) {
       try {
         const result = await action(commitmentId);
         // Approving also places the draft in Gmail. A push that did not happen for any
-        // reason other than "no account connected" keeps the user here to see why —
+// reason other than "no account connected" keeps the user here to see why
         // silently landing back on the queue would imply it worked.
         if (result && !result.pushed && result.reason && !SILENT_REASONS.has(result.reason)) {
           setError(`Approved and task created, but the Gmail draft was not written: ${result.reason}`);
@@ -68,8 +67,8 @@ export function ApprovalBar({ commitmentId }: { commitmentId: string }) {
         <div style={{ display: "flex", gap: "var(--space-2)" }}>
           <dt style={{ color: "var(--text)", fontWeight: 600, minWidth: 64 }}>Approve</dt>
           <dd style={{ margin: 0, color: "var(--muted)" }}>
-            Creates a task on your board, and — if Gmail is connected — places this draft in
-            your drafts folder. It is never sent.
+            Creates a task on your board. If Gmail is connected, it places this draft in your
+            drafts folder. It is never sent.
           </dd>
         </div>
         <div style={{ display: "flex", gap: "var(--space-2)" }}>

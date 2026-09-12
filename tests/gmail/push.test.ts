@@ -308,17 +308,23 @@ describe("pushDraftToGmail", () => {
     expect(tables.deliverable_draft[0].provider_draft_id).toBe("gmail-draft-2");
   });
 
-  it("skips a client with no email rather than drafting something unaddressed", async () => {
+  it("creates an unaddressed Gmail draft when the client has no email", async () => {
     const tables = seed({ client: { email: null } });
     const gmail = new FakeGmailClient();
 
     const result = await pushDraftToGmail(
       fakeDb(tables), { draftId: DRAFT, orgId: ORG, userId: USER, from: "owner@demo.test" }, gmail);
 
-    expect(result.outcome).toBe("skipped_no_recipient");
-    expect(gmail.created).toHaveLength(0);
-    expect(tables.deliverable_draft[0].provider_draft_id).toBeNull();
-    expect(logAudit).not.toHaveBeenCalled();
+    expect(result.outcome).toBe("pushed");
+    expect(gmail.created).toHaveLength(1);
+    const mime = Buffer.from(gmail.created[0], "base64url").toString("utf8");
+    expect(mime).toContain("To: \r\n");
+    expect(mime).toContain("Subject: ");
+    const encodedBody = mime.split("\r\n\r\n").slice(1).join("\r\n\r\n").replace(/\r\n/g, "");
+    expect(encodedBody).toBe(Buffer.from("Confirming the revised set lands Friday.", "utf8")
+      .toString("base64"));
+    expect(tables.deliverable_draft[0].provider_draft_id).toBe("gmail-draft-1");
+    expect(logAudit).toHaveBeenCalledOnce();
   });
 
   it("leaves the provider columns null when Gmail throttles the push", async () => {
@@ -359,7 +365,7 @@ describe("pushDraftToGmail", () => {
     ).rejects.toThrow(/does not belong/i);
   });
 
-  it("refuses to resolve a recipient when the draft's commitment belongs to a foreign org", async () => {
+  it("refuses to push when the draft's commitment belongs to a foreign org", async () => {
     // The draft itself is in ORG (passes the direct org check), but its commitment_id has
     // been pointed at a commitment that actually lives in a different org — the forged-row
     // shape from the cross-org leak this closes.
@@ -367,10 +373,9 @@ describe("pushDraftToGmail", () => {
     tables.commitment[0].org_id = OTHER_ORG;
     const gmail = new FakeGmailClient();
 
-    const result = await pushDraftToGmail(
-      fakeDb(tables), { draftId: DRAFT, orgId: ORG, userId: USER, from: "owner@demo.test" }, gmail);
-
-    expect(result.outcome).toBe("skipped_no_recipient");
+    await expect(pushDraftToGmail(
+      fakeDb(tables), { draftId: DRAFT, orgId: ORG, userId: USER, from: "owner@demo.test" }, gmail))
+      .rejects.toThrow(/does not belong/i);
     expect(gmail.created).toHaveLength(0);
   });
 

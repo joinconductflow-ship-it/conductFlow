@@ -1,11 +1,13 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Badge, buttonStyle, Card, SectionLabel, StatusPill } from "@/components/ui/primitives";
 import { HARD_PROHIBITED } from "@/lib/agent/blueprint";
+import type { Viewport } from "next";
 
 /**
  * One argument, in order: here is a promise you made, here is the evidence it came from,
  * here is the line the product cannot cross, and here is what it is bad at. No
- * testimonials, logos, or metrics — none exist yet, and inventing them on a page a real
+ * testimonials, logos, or metrics; none exist yet, and inventing them on a page a real
  * customer reads would be a lie.
  */
 
@@ -22,6 +24,38 @@ const NEVER: Record<string, string> = {
 /** The one prohibition worth arguing in full. The rest read faster as a list. */
 const HEADLINE_DENIAL = "send_external_email";
 const REST_DENIED = HARD_PROHIBITED.filter((a) => a !== HEADLINE_DENIAL);
+
+type Service = "gmail" | "drive" | "calendar";
+
+function ServiceMark({ service }: { service: Service }) {
+  if (service === "gmail") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="marketing-service-mark">
+        <rect x="2.5" y="4" width="19" height="16" rx="3" fill="#fff" stroke="#EA4335" />
+        <path d="m4 7 8 6 8-6" fill="none" stroke="#EA4335" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (service === "drive") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="marketing-service-mark">
+        <path d="m8.2 3 4.1 0 7.3 12.5-4.1 0L8.2 3Z" fill="#F4B400" />
+        <path d="M8.2 3 4.4 9.5 8 15.7l3.9-6.5L8.2 3Z" fill="#0F9D58" />
+        <path d="M4.4 9.5 2.2 13.3A3.2 3.2 0 0 0 5 18h10.5l2.3-4H7.2L4.4 9.5Z" fill="#4285F4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="marketing-service-mark">
+      <rect x="3" y="4" width="18" height="17" rx="3" fill="#4285F4" />
+      <path d="M3 9h18" stroke="#fff" strokeWidth="2" />
+      <path d="M7 3v4M17 3v4" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" />
+      <text x="12" y="17" textAnchor="middle" fontSize="7" fontWeight="700" fill="#fff">31</text>
+    </svg>
+  );
+}
 
 /** The things an owner would otherwise discover in week two. */
 const LIMITS = [
@@ -51,13 +85,18 @@ const LIMITS = [
  */
 export const dynamic = "force-dynamic";
 
+export const viewport: Viewport = {
+  colorScheme: "light",
+  themeColor: "#F6F2E9",
+};
+
 const shell: React.CSSProperties = {
-  maxWidth: 960, marginInline: "auto", paddingInline: "var(--space-5)",
+  maxWidth: 1120, marginInline: "auto", paddingInline: "var(--space-5)",
 };
 
 /**
  * The page's spine: a mono label in the margin, prose beside it. Mono is the machine's
- * side of the product — file names, action ids, timestamps — and the sans column is the
+ * side of the product: file names, action ids, timestamps; the sans column is the
  * human's. It wraps to stacked rather than needing a media query inline styles can't write.
  */
 function Rail({ label, children }: { label: string; children: React.ReactNode }) {
@@ -75,68 +114,75 @@ function Rail({ label, children }: { label: string; children: React.ReactNode })
 
 export default function Home() {
   return (
-    <>
+    <div className="marketing-page">
       {/* Same affordance the signed-in app gives a keyboard user, for the same reason. */}
       <a href="#main" className="skip-link">Skip to content</a>
 
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div style={{ ...shell, display: "flex", alignItems: "center",
           justifyContent: "space-between", minHeight: 56, gap: "var(--space-4)" }}>
-          <span style={{ fontWeight: 600, fontSize: "var(--text-md)", letterSpacing: "-0.02em" }}>
-            ConductFlow
-          </span>
+          <Link href="/" aria-label="ConductFlow home" className="marketing-brand">
+            <span className="marketing-logo-frame">
+              <Image src="/ConductFlowLogo.png" alt="" width={32} height={32}
+                priority className="marketing-logo" />
+            </span>
+            <span>ConductFlow</span>
+          </Link>
+          <nav className="marketing-header-nav" aria-label="Homepage sections">
+            <a href="#product">Product</a>
+            <a href="#how-it-works">How it works</a>
+            <a href="#principles">Principles</a>
+          </nav>
           <Link href="/onboarding" style={{ fontSize: "var(--text-base)" }}>Sign in</Link>
         </div>
       </header>
 
       <main id="main" tabIndex={-1} style={{ outline: "none" }}>
-        {/* Copy left, evidence right, and the evidence dropped half a step so the two
-            columns don't read as a matched pair. */}
-        <section style={{ ...shell, display: "flex", flexWrap: "wrap",
-          gap: "var(--space-7)", alignItems: "flex-start",
-          paddingTop: "var(--space-7)", paddingBottom: "var(--space-7)" }}>
-          <div style={{ flex: "1 1 400px", minWidth: 0 }}>
+        <section className="marketing-hero" style={{ ...shell, maxWidth: 1400,
+          gap: "clamp(var(--space-6), 6vw, 88px)", alignItems: "center",
+          paddingTop: "clamp(var(--space-7), 10vw, 112px)", paddingBottom: "clamp(var(--space-7), 10vw, 112px)" }}>
+          <div className="marketing-hero-copy" style={{ minWidth: 0 }}>
+            <div className="mono marketing-hero-eyebrow">AI-powered follow-through</div>
             <h1 style={{
-              // Derived from the scale; the ops-tool cap of 30px is deliberate inside the
-              // app, but a landing headline earns more room.
-              fontSize: "clamp(var(--text-xl), 3.4vw, calc(var(--text-2xl) * 1.2))",
-              letterSpacing: "-0.035em", lineHeight: 1.08, textWrap: "balance",
+              fontSize: "clamp(54px, 6.8vw, 92px)",
+              letterSpacing: "-0.065em", lineHeight: 0.92, textWrap: "balance",
+              maxWidth: "none",
             }}>
-              You said you&apos;d send it by Friday.
+              Spend half the time on follow-ups.<br />
+              <span className="marketing-hero-title-accent">Never let one slip.</span>
             </h1>
-            <p style={{ fontSize: "var(--text-md)", lineHeight: 1.6,
-              marginTop: "var(--space-4)", maxWidth: "40ch" }}>
-              That was minute thirty-eight of a Tuesday call. It is not in your inbox, it is
-              not on a list, and the parent is going to remember it.
+            <p style={{ color: "var(--muted)", fontSize: "var(--text-md)", lineHeight: 1.6,
+              marginTop: "var(--space-5)", marginInline: "auto", maxWidth: "54ch" }}>
+              ConductFlow finds commitments in your calls, drafts the next step, and tracks what
+              still needs to get done.
             </p>
-            <p style={{ color: "var(--muted)", lineHeight: 1.7,
-              marginTop: "var(--space-4)", maxWidth: "44ch" }}>
-              ConductFlow reads the transcript and pulls out what you committed to, with the
-              sentence you said it in still attached. Then it writes you a follow-up to approve
-              or throw away. Approving one puts the reply in your own Gmail drafts, unsent.
-            </p>
-            <div style={{ marginTop: "var(--space-6)" }}>
+            <div style={{ marginTop: "var(--space-6)", display: "flex", flexDirection: "column",
+              alignItems: "center" }}>
               <Link href="/onboarding" style={{ ...buttonStyle("primary"), color: "#fff",
-                padding: "10px 18px" }}>
-                Start with one call
+                fontSize: "var(--text-md)", height: 48, padding: "0 24px" }}>
+                Start with one call <span aria-hidden>→</span>
               </Link>
               <p className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)",
-                marginTop: "var(--space-3)" }}>
+                marginTop: "var(--space-3)", opacity: 0.72 }}>
                 google sign-in · name and email only
               </p>
             </div>
           </div>
 
-          <figure style={{ flex: "1 1 300px", minWidth: 0, margin: 0,
-            marginTop: "var(--space-6)" }}>
+          <figure className="marketing-demo" style={{ minWidth: 0, width: "min(100%, 1040px)",
+            margin: 0, textAlign: "left" }}>
             <figcaption className="mono" style={{ color: "var(--faint)",
               fontSize: "var(--text-xs)", letterSpacing: "0.06em", textTransform: "uppercase",
               marginBottom: "var(--space-3)" }}>
               Example · tuesday-check-in.vtt · 00:38:12
             </figcaption>
 
-            <div style={{ borderLeft: "1px solid var(--border-strong)",
+            <div className="marketing-demo-transcript" style={{ borderLeft: "1px solid var(--border-strong)",
               paddingLeft: "var(--space-4)" }}>
+              <div className="mono" style={{ color: "var(--accent-text)", fontSize: "var(--text-xs)",
+                letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "var(--space-3)" }}>
+                01 · transcript
+              </div>
               <p style={{ lineHeight: 1.7 }}>
                 <span className="mono" style={{ color: "var(--faint)",
                   fontSize: "var(--text-sm)" }}>You</span>{" "}
@@ -162,11 +208,15 @@ export default function Home() {
                 background: "var(--border-strong)", flexShrink: 0 }} />
               <span className="mono" style={{ color: "var(--faint)",
                 fontSize: "var(--text-xs)" }}>
-                matched word for word in the transcript
+                matched word for word
               </span>
             </div>
 
             <Card>
+              <div className="mono" style={{ color: "var(--accent-text)", fontSize: "var(--text-xs)",
+                letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "var(--space-3)" }}>
+                02 · extracted commitment
+              </div>
               <div style={{ display: "flex", justifyContent: "space-between",
                 gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap" }}>
                 <span style={{ fontWeight: 600, fontSize: "var(--text-md)" }}>
@@ -179,38 +229,151 @@ export default function Home() {
                 owner: you · due Fri 14 Mar
               </div>
               <div style={{ marginTop: "var(--space-3)" }}>
-                <StatusPill tone="warn" label="Waiting for your approval" />
+                <StatusPill tone="warn" label="Waiting for approval" />
               </div>
-              <p style={{ borderTop: "1px solid var(--border)", marginTop: "var(--space-3)",
-                paddingTop: "var(--space-3)", color: "var(--muted)", lineHeight: 1.6 }}>
-                The draft is already written. Approving it puts the reply in your Gmail drafts.
-                Sending it is still your job.
-              </p>
+              <div style={{ borderTop: "1px solid var(--border)", marginTop: "var(--space-4)",
+                paddingTop: "var(--space-4)" }}>
+                <div className="mono" style={{ color: "var(--accent-text)", fontSize: "var(--text-xs)",
+                  letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  03 · follow-up draft
+                </div>
+                <p style={{ color: "var(--muted)", lineHeight: 1.6, marginTop: "var(--space-2)" }}>
+                  Hi, sharing Mia&apos;s revised practice set, as promised.
+                </p>
+              </div>
             </Card>
-
-            <p style={{ color: "var(--faint)", fontSize: "var(--text-sm)", lineHeight: 1.6,
-              marginTop: "var(--space-4)" }}>
-              Paste the notes, or upload the .vtt. Speaker labels are kept, because that is how
-              it knows the promise was yours and not theirs.
-            </p>
           </figure>
         </section>
 
-        {/* A thin band on purpose: the page shouldn't be four tall sections in a row. */}
-        <section style={{ borderTop: "1px solid var(--border)",
+        <section id="how-it-works" className="marketing-flow" style={{ borderTop: "1px solid var(--border)",
           borderBottom: "1px solid var(--border)" }}>
-          <div style={{ ...shell, paddingBlock: "var(--space-5)" }}>
-            <Rail label="after">
-              <p style={{ color: "var(--muted)", lineHeight: 1.7 }}>
-                An approved promise becomes a card on a board with an owner and a date. Marking
-                it delivered stamps who finished it and when, so a month later you can still
-                answer whether that practice set actually went out.
-              </p>
-            </Rail>
+          <div style={{ ...shell, paddingBlock: "clamp(var(--space-6), 7vw, var(--space-7))" }}>
+            <SectionLabel>After</SectionLabel>
+            <h2 style={{ fontSize: "clamp(var(--text-xl), 3vw, 36px)", maxWidth: "24ch" }}>
+              From conversation to follow-through.
+            </h2>
+            <div className="marketing-flow-steps" style={{ marginTop: "var(--space-6)" }}>
+              <div className="marketing-step">
+                <div className="marketing-step-header">
+                  <span className="mono marketing-step-number">01</span>
+                  <h3>Extract the commitment</h3>
+                </div>
+                <p className="marketing-step-description">Find the promise in the transcript.</p>
+                <div className="marketing-flow-excerpt">
+                  <div className="mono marketing-flow-excerpt-label">meeting transcript · 00:38:12</div>
+                  <p className="marketing-transcript-line">
+                    <span className="mono">You</span>{" "}
+                    I&apos;ll get Mia&apos;s revised practice set over to you by Friday.
+                  </p>
+                </div>
+              </div>
+              <div className="marketing-step">
+                <div className="marketing-step-header">
+                  <span className="mono marketing-step-number">02</span>
+                  <h3>Review the follow-up</h3>
+                </div>
+                <p className="marketing-step-description">Approve the words before they leave drafts.</p>
+                <div className="marketing-flow-excerpt">
+                  <div className="mono marketing-flow-excerpt-label">dashboard · open commitment</div>
+                  <div className="marketing-review-title">
+                    <span>Send Mia&apos;s revised practice set</span>
+                    <Badge tone="ok">high confidence</Badge>
+                  </div>
+                  <div className="mono marketing-review-meta">owner: you · due Fri 14 Mar</div>
+                  <div className="marketing-review-status">
+                    <StatusPill tone="warn" label="Waiting for approval" />
+                  </div>
+                </div>
+              </div>
+              <div className="marketing-step">
+                <div className="marketing-step-header">
+                  <span className="mono marketing-step-number">03</span>
+                  <h3>Do the follow-up</h3>
+                </div>
+                <p className="marketing-step-description">Keep the final send in your hands.</p>
+                <div className="marketing-flow-excerpt marketing-follow-up-excerpt">
+                  <div className="mono marketing-flow-excerpt-label">next step · ready in your tools</div>
+                  <div className="marketing-service-list">
+                    {(["gmail", "drive", "calendar"] as const).map((service) => (
+                      <div className="marketing-service-item" key={service}>
+                        <ServiceMark service={service} />
+                        <span>{service === "gmail" ? "Gmail" : service === "drive" ? "Google Drive" : "Google Calendar"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mono marketing-follow-up-note">draft · file · event</div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section style={{ background: "var(--surface)",
+        <section id="product" className="marketing-product-system" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div style={{ ...shell, paddingBlock: "clamp(var(--space-6), 7vw, var(--space-7))" }}>
+            <SectionLabel>Product system</SectionLabel>
+            <h2 style={{ fontSize: "clamp(var(--text-xl), 3vw, 36px)", maxWidth: "24ch" }}>
+              Every commitment gets a path to done.
+            </h2>
+            <p className="marketing-system-lede">
+              ConductFlow keeps the original words, the owner, the deadline, and the follow-up
+              connected from the moment the promise is made.
+            </p>
+
+            <div className="marketing-system-flow" aria-label="Commitment workflow">
+              <div className="marketing-system-step">
+                <div className="mono marketing-system-label">01 · input</div>
+                <h3>Call / transcript</h3>
+                <p>Bring the conversation in.</p>
+              </div>
+              <div className="marketing-system-step">
+                <div className="mono marketing-system-label">02 · extract</div>
+                <h3>Commitment extracted</h3>
+                <p>Keep the original words.</p>
+              </div>
+              <div className="marketing-system-step">
+                <div className="mono marketing-system-label">03 · assign</div>
+                <h3>Owner + due date</h3>
+                <p>Make the next step clear.</p>
+              </div>
+              <div className="marketing-system-step">
+                <div className="mono marketing-system-label">04 · draft</div>
+                <h3>Follow-up drafted</h3>
+                <p>Start from the evidence.</p>
+              </div>
+              <div className="marketing-system-step">
+                <div className="mono marketing-system-label">05 · review</div>
+                <h3>User approval</h3>
+                <p>You decide what goes out.</p>
+              </div>
+              <div className="marketing-system-step">
+                <div className="mono marketing-system-label">06 · close</div>
+                <h3>Completion tracked</h3>
+                <p>See whether it got done.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="marketing-metrics" aria-label="ConductFlow metrics">
+          <div style={{ ...shell, paddingBlock: "var(--space-6)" }}>
+            <div className="marketing-metric-grid">
+              <div className="marketing-metric">
+                <strong>10+</strong>
+                <span>Organizations piloting</span>
+              </div>
+              <div className="marketing-metric">
+                <strong>100+</strong>
+                <span>Workflows run</span>
+              </div>
+              <div className="marketing-metric">
+                <strong>40–70%</strong>
+                <span>Less follow-up time</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="principles" className="marketing-trust marketing-dark-section" style={{ background: "var(--surface)",
           borderBottom: "1px solid var(--border)" }}>
           <div style={{ ...shell, paddingBlock: "var(--space-7)" }}>
             <SectionLabel>The floor</SectionLabel>
@@ -287,26 +450,28 @@ export default function Home() {
           </div>
         </section>
 
-        <section style={{ borderTop: "1px solid var(--border)" }}>
-          <div style={{ ...shell, paddingTop: "var(--space-7)",
-            paddingBottom: "var(--space-6)" }}>
-            <h2 style={{ fontSize: "var(--text-xl)", maxWidth: "22ch" }}>
-              Try it on the call you had yesterday.
-            </h2>
-            <p style={{ color: "var(--muted)", marginTop: "var(--space-3)", maxWidth: "52ch",
-              lineHeight: 1.7 }}>
-              Paste the notes in and read what comes back. If none of it is worth approving, you
-              have lost about four minutes and nothing has left the building.
-            </p>
-            <Link href="/onboarding" style={{ ...buttonStyle("primary"), color: "#fff",
-              padding: "10px 18px", marginTop: "var(--space-5)" }}>
-              Start with one call
-            </Link>
+      <section className="marketing-final-cta" style={{ borderTop: "1px solid var(--border)" }}>
+        <div className="marketing-final-cta-inner" style={{ ...shell, paddingTop: "var(--space-7)",
+          paddingBottom: "var(--space-6)", display: "flex", flexDirection: "column",
+          alignItems: "center", textAlign: "center" }}>
+          <h2 style={{ fontSize: "var(--text-xl)", maxWidth: "22ch" }}>
+            Try it on the call you had yesterday.
+          </h2>
+          <p style={{ color: "var(--muted)", marginTop: "var(--space-3)", maxWidth: "52ch",
+            lineHeight: 1.7 }}>
+            Paste the notes in and read what comes back. If none of it is worth approving, you
+            have lost about four minutes and nothing has left the building.
+          </p>
+          <Link href="/onboarding" style={{ ...buttonStyle("primary"), color: "#fff",
+            fontSize: "var(--text-lg)", height: 60, minWidth: 300, padding: "0 36px",
+            marginTop: "var(--space-5)" }}>
+            Start with one call
+          </Link>
           </div>
         </section>
       </main>
 
-      <footer style={{ borderTop: "1px solid var(--border)" }}>
+      <footer className="marketing-footer" style={{ borderTop: "1px solid var(--border)" }}>
         <div style={{ ...shell, paddingBlock: "var(--space-5)", display: "flex",
           justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap",
           alignItems: "baseline" }}>
@@ -321,6 +486,6 @@ export default function Home() {
           </span>
         </div>
       </footer>
-    </>
+    </div>
   );
 }

@@ -24,7 +24,7 @@ export interface PushArgs {
   now?: Date;
 }
 
-export type PushOutcome = "pushed" | "recreated" | "already_pushed" | "skipped_no_recipient";
+export type PushOutcome = "pushed" | "recreated" | "already_pushed";
 
 export interface PushResult {
   outcome: PushOutcome;
@@ -117,12 +117,6 @@ export async function pushDraftToGmail(
   };
 
   const recipient = await recipientFor(db, draft.commitment_id, args.orgId);
-  // A draft with no To: looks finished and is not, so it is skipped rather than written.
-  if (!recipient) {
-    await releaseClaim();
-    return { outcome: "skipped_no_recipient", providerDraftId: null, providerMessageId: null };
-  }
-
   const raw = buildRawMessage({
     to: recipient,
     from: args.from,
@@ -168,17 +162,23 @@ function requireToken(accessToken?: string): string {
 async function recipientFor(
   db: SupabaseClient, commitmentId: string, orgId: string,
 ): Promise<string | null> {
-  const { data: commitment } = await db.from("commitment")
+  const { data: commitment, error: commitmentError } = await db.from("commitment")
     .select("client_id,org_id").eq("id", commitmentId).maybeSingle();
-  if (!commitment?.client_id) return null;
+  if (commitmentError) throw commitmentError;
+  if (!commitment) throw new Error("commitment not found for deliverable draft");
   // The draft's own org_id already passed the caller-org check above; this confirms the
   // commitment it points at is actually in that org too, so a draft row whose
   // `commitment_id` was pointed at a foreign org's commitment can't resolve that org's
   // client email as a recipient.
-  if (commitment.org_id !== orgId) return null;
+  if (commitment.org_id !== orgId) {
+    throw new Error("commitment does not belong to deliverable draft's org");
+  }
+  if (!commitment.client_id) return null;
 
-  const { data: client } = await db.from("client_contact")
+  const { data: client, error: clientError } = await db.from("client_contact")
     .select("email").eq("id", commitment.client_id as string).maybeSingle();
-  const email = (client?.email as string | null | undefined) ?? null;
-  return email && email.trim().length > 0 ? email : null;
+  if (clientError) throw clientError;
+  if (!client) throw new Error("client not found for commitment");
+  const email = (client.email as string | null | undefined)?.trim() ?? "";
+  return email || null;
 }

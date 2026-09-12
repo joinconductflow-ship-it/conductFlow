@@ -51,6 +51,15 @@ describe("buildRawMessage", () => {
     expect(header(mime, "Content-Transfer-Encoding")).toBe("base64");
   });
 
+  it("leaves the To header blank when no recipient is available", () => {
+    const mime = decode(buildRawMessage({ ...base, to: null }));
+    expect(header(mime, "To")).toBe("");
+    expect(header(mime, "From")).toBe("owner@demo.test");
+    expect(decodeEncodedWords(header(mime, "Subject"))).toBe(base.subject);
+    const encodedBody = mime.split("\r\n\r\n").slice(1).join("\r\n\r\n").replace(/\r\n/g, "");
+    expect(encodedBody).toBe(Buffer.from(base.body, "utf8").toString("base64"));
+  });
+
   it("encodes an ASCII subject as an encoded-word that round trips unchanged", () => {
     const mime = decode(buildRawMessage(base));
     const subject = header(mime, "Subject");
