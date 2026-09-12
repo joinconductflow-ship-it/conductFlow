@@ -1,8 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Badge, buttonStyle, Card, SectionLabel, StatusPill } from "@/components/ui/primitives";
+
 import { HARD_PROHIBITED } from "@/lib/agent/blueprint";
 import type { Viewport } from "next";
+
+/** Published as a GitHub release asset: 97 MB is too large for the repo or a Vercel
+ *  deploy, and a release gives the file a stable URL and a place to state the
+ *  unsigned/Apple-Silicon caveats in full. */
+const DESKTOP_DOWNLOAD_URL =
+  "https://github.com/joinconductflow-ship-it/conductFlow/releases/latest/download/conductFlow-1.0.0-arm64.dmg";
 
 /**
  * One argument, in order: here is a promise you made, here is the evidence it came from,
@@ -24,6 +31,15 @@ const NEVER: Record<string, string> = {
 /** The one prohibition worth arguing in full. The rest read faster as a list. */
 const HEADLINE_DENIAL = "send_external_email";
 const REST_DENIED = HARD_PROHIBITED.filter((a) => a !== HEADLINE_DENIAL);
+
+/** Apple's mark, inline so the strict CSP does not need a new image source. */
+function AppleMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 384 512" width="15" height="15" fill="currentColor">
+      <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+    </svg>
+  );
+}
 
 type Service = "gmail" | "drive" | "calendar";
 
@@ -132,6 +148,7 @@ export default function Home() {
             <a href="#product">Product</a>
             <a href="#how-it-works">How it works</a>
             <a href="#principles">Principles</a>
+            <a href="#desktop">Mac app</a>
           </nav>
           <Link href="/onboarding" style={{ fontSize: "var(--text-base)" }}>Sign in</Link>
         </div>
@@ -158,13 +175,22 @@ export default function Home() {
             </p>
             <div style={{ marginTop: "var(--space-6)", display: "flex", flexDirection: "column",
               alignItems: "center" }}>
-              <Link href="/onboarding" style={{ ...buttonStyle("primary"), color: "#fff",
-                fontSize: "var(--text-md)", height: 48, padding: "0 24px" }}>
-                Start with one call <span aria-hidden>→</span>
-              </Link>
+              <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap",
+                justifyContent: "center" }}>
+                <Link href="/onboarding" style={{ ...buttonStyle("primary"), color: "#fff",
+                  fontSize: "var(--text-md)", height: 48, padding: "0 24px" }}>
+                  Start with one call <span aria-hidden>→</span>
+                </Link>
+                <a href={DESKTOP_DOWNLOAD_URL}
+                  style={{ ...buttonStyle("secondary"), fontSize: "var(--text-md)",
+                    height: 48, padding: "0 20px", display: "inline-flex",
+                    alignItems: "center", gap: 8 }}>
+                  <AppleMark /> Download for macOS
+                </a>
+              </div>
               <p className="mono" style={{ color: "var(--faint)", fontSize: "var(--text-xs)",
                 marginTop: "var(--space-3)", opacity: 0.72 }}>
-                google sign-in · name and email only
+                google sign-in · name and email only · mac app is apple silicon, unsigned
               </p>
             </div>
           </div>
@@ -434,6 +460,45 @@ export default function Home() {
               stays answerable.
             </p>
           </div>
+        </section>
+
+        <section id="desktop" style={{ ...shell, paddingBlock: "var(--space-7)",
+          borderTop: "1px solid var(--border)" }}>
+          <SectionLabel>Desktop</SectionLabel>
+          <h2 style={{ fontSize: "var(--text-lg)", maxWidth: "30ch" }}>
+            Capture a call without opening a tab
+          </h2>
+          <p style={{ color: "var(--muted)", lineHeight: 1.7, maxWidth: "58ch",
+            marginTop: "var(--space-4)" }}>
+            A menu-bar app for Mac. Copy the notes from a call, press{" "}
+            <kbd style={{ font: "inherit", fontSize: "0.92em", border: "1px solid var(--border)",
+              borderRadius: 4, padding: "1px 5px" }}>⌘⇧I</kbd>, and the commitments land in
+            your queue as proposals. It reads your clipboard when you ask it to, and nothing
+            else. Nothing sends — you still approve every draft here.
+          </p>
+
+          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center",
+            flexWrap: "wrap", marginTop: "var(--space-5)" }}>
+            <a
+              href={DESKTOP_DOWNLOAD_URL}
+              className="cf-btn"
+              style={buttonStyle("primary")}
+            >
+              Download for Mac
+            </a>
+            <span style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>
+              Apple Silicon · 97 MB · requires a workspace token
+            </span>
+          </div>
+
+          {/* Said here rather than discovered at the Gatekeeper dialog. An unsigned
+              build reads as broken software if the page does not warn about it. */}
+          <p style={{ color: "var(--muted)", fontSize: "var(--text-sm)", lineHeight: 1.7,
+            maxWidth: "58ch", marginTop: "var(--space-4)" }}>
+            This build is not notarised by Apple, so the first launch needs a right-click →
+            Open instead of a double-click. It runs on Apple Silicon only. Create a token
+            under Settings → Desktop app once you have signed in.
+          </p>
         </section>
 
         <section style={{ ...shell, paddingBlock: "var(--space-7)" }}>
