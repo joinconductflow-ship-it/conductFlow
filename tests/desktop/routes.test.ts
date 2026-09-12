@@ -12,6 +12,7 @@ const runIngest = vi.fn();
 let tokenRow: Record<string, unknown> | null;
 let clientRow: Record<string, unknown> | null;
 let lookupError: { message: string } | null;
+let scheduledSessionError: { message: string } | null;
 let inserted: Record<string, unknown>[];
 
 vi.mock("@/lib/agent/extract", () => ({ extractCommitments: (...a: unknown[]) => extractCommitments(...a) }));
@@ -28,6 +29,8 @@ vi.mock("@/lib/db/service", () => ({
         single: async () =>
           table === "client_contact"
             ? { data: { id: "client-1", name: "Northwind" }, error: null }
+            : table === "scheduled_session"
+              ? { data: scheduledSessionError ? null : { id: "session-1" }, error: scheduledSessionError }
             : { data: null, error: null },
         maybeSingle: async () => {
           if (table === "desktop_token") return { data: tokenRow, error: lookupError };
@@ -48,6 +51,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   inserted = [];
   lookupError = null;
+  scheduledSessionError = null;
   clientRow = null;
   tokenRow = {
     id: "tok-1", org_id: "org-a", user_id: "user-1",
@@ -188,5 +192,46 @@ describe("POST /api/desktop/execute", () => {
     const { POST } = await import("@/app/api/desktop/execute/route");
     const res = await POST(post("/api/desktop/execute", good));
     expect(res.status).toBe(403);
+  });
+
+  it("records a future meeting after the blueprint-governed ingest", async () => {
+    runIngest.mockResolvedValue({
+      conversationId: "c", commitmentCount: 0, draftCount: 0, flagged: [], dropped: 0,
+    });
+    const { POST } = await import("@/app/api/desktop/execute/route");
+    const meetingAt = new Date(Date.now() + 60_000).toISOString();
+    const payload = await (await POST(post("/api/desktop/execute", {
+      ...good, meetingAt, meetingNote: "Review kickoff notes",
+    }))).json();
+
+    expect(payload.scheduledSessionId).toBe("session-1");
+    expect(inserted).toContainEqual(expect.objectContaining({
+      table: "scheduled_session", org_id: "org-a", client_id: "client-1",
+      starts_at: meetingAt,
+    }));
+  });
+
+  it("rejects invalid or past meeting times before any write", async () => {
+    const { POST } = await import("@/app/api/desktop/execute/route");
+    for (const meetingAt of ["not-a-date", "2020-01-01T12:00:00Z", "2027-02-30T12:00:00Z"]) {
+      const res = await POST(post("/api/desktop/execute", { ...good, meetingAt }));
+      expect(res.status).toBe(400);
+    }
+    expect(inserted).toHaveLength(0);
+    expect(runIngest).not.toHaveBeenCalled();
+  });
+
+  it("keeps a successful ingest when scheduling fails", async () => {
+    runIngest.mockResolvedValue({
+      conversationId: "c", commitmentCount: 0, draftCount: 0, flagged: [], dropped: 0,
+    });
+    scheduledSessionError = { message: "calendar unavailable" };
+    const { POST } = await import("@/app/api/desktop/execute/route");
+    const payload = await (await POST(post("/api/desktop/execute", {
+      ...good, meetingAt: new Date(Date.now() + 60_000).toISOString(),
+    }))).json();
+
+    expect(payload.conversationId).toBe("c");
+    expect(payload.calendarError).toMatch(/calendar unavailable/);
   });
 });

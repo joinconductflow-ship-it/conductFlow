@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/db/service";
 import { resolveToken, touchToken } from "@/lib/auth/desktop-token";
 import { runIngest } from "@/lib/ingest/run";
 import { MAX_TRANSCRIPT_CHARS } from "@/lib/agent/schema";
+import { logAudit } from "@/lib/audit/log";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,48 @@ async function resolveClient(
   return created;
 }
 
+/**
+ * This mirrors the persistence portion of createScheduledSession.  The desktop caller
+ * has a bearer-token identity rather than a browser session, so its org is supplied by
+ * resolveToken, never by the request.  A scheduled_session is an internal record; it is
+ * deliberately not a Calendar event, which remains behind the approval chokepoint.
+ */
+async function createScheduledSession(
+  db: ReturnType<typeof getServiceClient>,
+  args: { orgId: string; clientId: string; startsAt: Date },
+): Promise<string> {
+  const { data: scheduled, error } = await db.from("scheduled_session").insert({
+    org_id: args.orgId,
+    client_id: args.clientId,
+    starts_at: args.startsAt.toISOString(),
+  }).select("id").single();
+  if (error) throw new Error(`could not create that scheduled session: ${error.message}`);
+
+  await logAudit({
+    orgId: args.orgId,
+    actor: "human",
+    action: "create",
+    target: `scheduled_session:${scheduled.id}:add`,
+  });
+  return scheduled.id as string;
+}
+
+function parseFutureMeetingAt(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  // Date.parse accepts date-only and several browser-specific forms.  The desktop API
+  // accepts an ISO 8601 *datetime* with an explicit UTC offset only.
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value);
+  if (!match) {
+    return null;
+  }
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (date.getUTCFullYear() !== Number(year) || date.getUTCMonth() !== Number(month) - 1 ||
+    date.getUTCDate() !== Number(day)) return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) && parsed.getTime() > Date.now() ? parsed : null;
+}
+
 export async function POST(request: Request) {
   const db = getServiceClient();
 
@@ -64,7 +107,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unavailable" }, { status: 503 });
   }
   if (!caller) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  await touchToken(db, caller.tokenId);
 
   let body: Record<string, unknown>;
   try {
@@ -78,6 +120,17 @@ export async function POST(request: Request) {
   const clientName = str("clientName");
   const clientEmail = str("clientEmail");
   const title = str("title") || `Desktop capture — ${new Date().toISOString().slice(0, 10)}`;
+  const hasMeetingAt = Object.hasOwn(body, "meetingAt");
+  const meetingAt = hasMeetingAt ? parseFutureMeetingAt(body.meetingAt) : null;
+
+  // Validate this before touchToken or any other write.  A bad proposed session must
+  // leave no contact, ingest, audit, or token-use mutation behind.
+  if (hasMeetingAt && !meetingAt) {
+    return NextResponse.json({ error: "meetingAt must be a valid future ISO 8601 datetime" }, { status: 400 });
+  }
+  if (body.meetingNote !== undefined && typeof body.meetingNote !== "string") {
+    return NextResponse.json({ error: "meetingNote must be a string" }, { status: 400 });
+  }
 
   if (!text) return NextResponse.json({ error: "nothing to ingest" }, { status: 400 });
   if (text.length > MAX_TRANSCRIPT_CHARS) {
@@ -94,6 +147,8 @@ export async function POST(request: Request) {
     );
   }
 
+  await touchToken(db, caller.tokenId);
+
   try {
     const client = await resolveClient(db, {
       orgId: caller.orgId, name: clientName, email: clientEmail,
@@ -108,6 +163,22 @@ export async function POST(request: Request) {
       transcript: text,
     });
 
+    let scheduledSessionId: string | undefined;
+    let calendarError: string | undefined;
+    if (meetingAt) {
+      try {
+        // Keep Calendar itself approval-gated.  This writes only the existing internal
+        // scheduling record after the blueprint-governed ingest has succeeded.
+        scheduledSessionId = await createScheduledSession(db, {
+          orgId: caller.orgId,
+          clientId: client.id,
+          startsAt: meetingAt,
+        });
+      } catch (error) {
+        calendarError = error instanceof Error ? error.message : "could not create scheduled session";
+      }
+    }
+
     return NextResponse.json({
       clientId: client.id,
       conversationId: result.conversationId,
@@ -115,6 +186,8 @@ export async function POST(request: Request) {
       draftCount: result.draftCount,
       flagged: result.flagged,
       dropped: result.dropped,
+      ...(scheduledSessionId ? { scheduledSessionId } : {}),
+      ...(calendarError ? { calendarError } : {}),
       // Said plainly so no client can present this as "sent".
       status: "queued for approval — nothing has been sent",
     });
