@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { readPageData } from "@/lib/db/page-read";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { getCommitment, getDraftForCommitment, getTranscriptForCommitment } from "@/lib/db/queries";
 import { DraftSurface } from "@/components/draft/DraftSurface";
 import { ApprovalBar } from "@/components/draft/ApprovalBar";
@@ -27,11 +29,19 @@ function Fact({ label, value, tone }:
 
 export default async function DraftReview({ params }: { params: Promise<{ commitmentId: string }> }) {
   const { commitmentId } = await params;
-  const [c, draft, transcript] = await Promise.all([
-    getCommitment(commitmentId),
-    getDraftForCommitment(commitmentId),
-    getTranscriptForCommitment(commitmentId),
+  const [commitmentResult, draftResult, transcriptResult] = await Promise.all([
+    readPageData(`/queue/[commitmentId]: commitment ${commitmentId}`, () => getCommitment(commitmentId)),
+    readPageData(`/queue/[commitmentId]: deliverable_draft ${commitmentId}`, () => getDraftForCommitment(commitmentId)),
+    readPageData(`/queue/[commitmentId]: transcript ${commitmentId}`, () => getTranscriptForCommitment(commitmentId)),
   ]);
+  const c = commitmentResult.data;
+  const draft = draftResult.data;
+  const transcript = transcriptResult.data;
+
+  if (commitmentResult.unavailable) return <main style={pageStyle}>
+    <BackLink href="/queue">Queue</BackLink>
+    <Unavailable section="This commitment is" />
+  </main>;
 
   if (!c) return (
     <main style={pageStyle}>
@@ -81,9 +91,12 @@ export default async function DraftReview({ params }: { params: Promise<{ commit
             </Card>
           )}
 
-          <DraftSurface draft={draft} provenance={["transcript", "client record"]} />
-          <GenerateDraftButton commitmentId={c.id} hasDraft={!!draft} />
-          <ApprovalBar commitmentId={c.id} />
+          {transcriptResult.unavailable && <Unavailable section="Source review is" />}
+          {draftResult.unavailable ? <Unavailable section="The draft is" /> : <>
+            <DraftSurface draft={draft} provenance={["transcript", "client record"]} />
+            <GenerateDraftButton commitmentId={c.id} hasDraft={!!draft} />
+          </>}
+          {!draftResult.unavailable && !transcriptResult.unavailable && <ApprovalBar commitmentId={c.id} />}
         </div>
 
         <aside style={{ flex: "0 1 208px", minWidth: 180 }}>

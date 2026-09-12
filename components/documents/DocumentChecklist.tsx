@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Unavailable } from "@/components/ui/Unavailable";
 import {
   addDocumentRequirement, markDocumentReceived, runDocumentSweep, pushDocumentDraft,
 } from "@/app/actions/documents";
@@ -9,13 +10,14 @@ import {
 } from "@/components/ui/primitives";
 
 export interface DocumentChecklistProps {
+  unavailable?: Partial<Record<"clients" | "requirements" | "documents" | "drafts", boolean>>;
   clients: { id: string; name: string }[];
   requirements: { id: string; name: string; description: string | null }[];
   documents: { id: string; client_id: string; requirement_id: string; status: string }[];
   drafts: { id: string; client_id: string; subject: string | null; body: string }[];
 }
 
-export function DocumentChecklist({ clients, requirements, documents, drafts }: DocumentChecklistProps) {
+export function DocumentChecklist({ clients, requirements, documents, drafts, unavailable = {} }: DocumentChecklistProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -67,12 +69,13 @@ export function DocumentChecklist({ clients, requirements, documents, drafts }: 
           {isPending && busyKey === "sweep" ? "Chasing…" : "Chase now"}
         </button>
       </div>
-      {requirements.length === 0 && <EmptyState title="No requirements yet" body="Add a document above to start a checklist for your clients." />}
+      {unavailable.requirements ? <Unavailable section="Document requirements are" /> : requirements.length === 0 && <EmptyState title="No requirements yet" body="Add a document above to start a checklist for your clients." />}
       {requirements.map((requirement) => (
         <Card key={requirement.id}>
           <CardTitle>{requirement.name}</CardTitle>
           {requirement.description && <p style={{ ...proseStyle, color: "var(--muted)", whiteSpace: "pre-wrap", overflowWrap: "anywhere", marginTop: "var(--space-2)" }}>{requirement.description}</p>}
-          {clients.length === 0 && <p style={{ color: "var(--faint)", marginTop: "var(--space-3)" }}>No clients yet.</p>}
+          {unavailable.clients ? <Unavailable section="Clients are" /> : clients.length === 0 && <p style={{ color: "var(--faint)", marginTop: "var(--space-3)" }}>No clients yet.</p>}
+          {unavailable.documents && <Unavailable section="Document statuses are" />}
           <ul style={{ listStyle: "none", padding: 0, margin: "var(--space-3) 0 0" }}>
             {clients.map((client) => {
               const document = documents.find((row) => row.client_id === client.id && row.requirement_id === requirement.id);
@@ -81,7 +84,7 @@ export function DocumentChecklist({ clients, requirements, documents, drafts }: 
                   <span>{client.name}</span>
                   <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
                     <Badge tone={document?.status === "received" ? "ok" : document?.status === "missing" ? "warn" : "neutral"}>
-                      {document?.status ?? "not assigned"}
+                      {unavailable.documents ? "unavailable" : document?.status ?? "not assigned"}
                     </Badge>
                     {document?.status === "missing" && (
                       <button disabled={isPending} aria-busy={isPending && busyKey === document.id}
@@ -98,6 +101,7 @@ export function DocumentChecklist({ clients, requirements, documents, drafts }: 
           </ul>
         </Card>
       ))}
+      {unavailable.drafts && <Unavailable section="Document reminder drafts are" />}
       {drafts.map((draft) => (
         <Card key={draft.id}>
           <CardTitle>{draft.subject ?? "Document reminder"}</CardTitle>

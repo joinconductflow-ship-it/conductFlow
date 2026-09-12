@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Unavailable } from "@/components/ui/Unavailable";
 import {
   logTime, draftInvoice, markInvoiceSent, markInvoicePaid, runCollectionsSweep, pushInvoiceDraft,
 } from "@/app/actions/billing";
@@ -10,13 +11,14 @@ import {
 } from "@/components/ui/primitives";
 
 export interface BillingPanelProps {
+  unavailable?: Partial<Record<"clients" | "entries" | "invoices" | "drafts", boolean>>;
   clients: { id: string; name: string }[];
   entries: { id: string; client_id: string; minutes: number; note: string | null; created_at: string | null }[];
   invoices: { id: string; client_id: string; status: InvoiceStatus; total_cents: number; due_date: string | null }[];
   drafts: { id: string; client_id: string; kind: string; subject: string | null; body: string }[];
 }
 
-export function BillingPanel({ clients, entries, invoices, drafts }: BillingPanelProps) {
+export function BillingPanel({ clients, entries, invoices, drafts, unavailable = {} }: BillingPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function BillingPanel({ clients, entries, invoices, drafts }: BillingPane
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
       {error && <p role="alert" style={{ color: "var(--danger-text)" }}>{error}</p>}
       {note && <p role="status" style={{ color: "var(--muted)" }}>{note}</p>}
-      {clients.length === 0 ? (
+      {unavailable.clients ? <Unavailable section="Clients are" /> : clients.length === 0 ? (
         <EmptyState title="No clients yet" body="Add a client when adding a transcript, then log their time here." />
       ) : (
         <>
@@ -72,7 +74,7 @@ export function BillingPanel({ clients, entries, invoices, drafts }: BillingPane
               </button>
             </form>
           </Card>
-          <Card>
+          {unavailable.entries ? <Unavailable section="Un-invoiced time is" /> : <Card>
             <CardTitle>Un-invoiced time · {clients.find((client) => client.id === clientId)?.name}</CardTitle>
             {unbilled.length === 0 ? (
               <p style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>No un-invoiced time for this client.</p>
@@ -95,7 +97,7 @@ export function BillingPanel({ clients, entries, invoices, drafts }: BillingPane
               })} style={{ ...buttonStyle("secondary", isPending || unbilled.length === 0), marginTop: "var(--space-4)" }}>
               {isPending && busyKey === "invoice" ? "Drafting…" : "Draft invoice"}
             </button>
-          </Card>
+          </Card>}
         </>
       )}
       <div>
@@ -107,7 +109,7 @@ export function BillingPanel({ clients, entries, invoices, drafts }: BillingPane
           {isPending && busyKey === "sweep" ? "Checking…" : "Run collections sweep"}
         </button>
       </div>
-      {invoices.length === 0 && <EmptyState title="No invoices yet" body="Log time for a client, then draft an invoice from their un-invoiced entries." />}
+      {unavailable.invoices ? <Unavailable section="Invoices are" /> : invoices.length === 0 && <EmptyState title="No invoices yet" body="Log time for a client, then draft an invoice from their un-invoiced entries." />}
       {invoices.map((invoice) => (
         <Card key={invoice.id}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" }}>
@@ -138,6 +140,7 @@ export function BillingPanel({ clients, entries, invoices, drafts }: BillingPane
           </div>
         </Card>
       ))}
+      {unavailable.drafts && <Unavailable section="Billing drafts are" />}
       {drafts.map((draft) => (
         <Card key={draft.id}>
           <CardTitle>{draft.subject ?? "Billing draft"}</CardTitle>

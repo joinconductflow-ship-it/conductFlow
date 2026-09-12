@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { resolveRisk, scanForPaymentRisk } from "@/app/actions/payments";
 import { Card, CardTitle, EmptyState, Badge, buttonStyle, proseStyle } from "@/components/ui/primitives";
 
@@ -13,13 +14,14 @@ const SIGNAL_LABELS: Record<Signal, string> = {
 };
 
 export interface PaymentRiskPanelProps {
+  unavailable?: boolean;
   flags: { id: string; client_id: string; invoice_id: string | null; signal: Signal;
     evidence: string; related_draft_id: string | null; created_at: string }[];
   clientNames: Record<string, string>;
   relatedDrafts: Record<string, { subject: string | null; body: string }>;
 }
 
-export function PaymentRiskPanel({ flags, clientNames, relatedDrafts }: PaymentRiskPanelProps) {
+export function PaymentRiskPanel({ flags, clientNames, relatedDrafts, unavailable }: PaymentRiskPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function PaymentRiskPanel({ flags, clientNames, relatedDrafts }: PaymentR
         </button>
       </div>
       {error && <p role="alert" style={{ color: "var(--danger-text)" }}>{error}</p>}
-      {flags.length === 0 ? <EmptyState title="No payment risk flags right now."
+      {unavailable ? <Unavailable section="Payment risk flags are" /> : flags.length === 0 ? <EmptyState title="No payment risk flags right now."
         body="Run a scan any time to correlate current invoice and operational signals." /> : flags.map((flag) => {
         const draft = flag.related_draft_id ? relatedDrafts[flag.related_draft_id] : undefined;
         return (

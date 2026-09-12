@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { readPageData } from "@/lib/db/page-read";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { getCurrentOrgId, listCommitments } from "@/lib/db/queries";
 import { computeMetrics } from "@/lib/metrics";
 import { StatTile } from "@/components/ui/StatTile";
@@ -11,7 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const orgId = await getCurrentOrgId();
+  const orgId = await getCurrentOrgId("/dashboard");
   if (!orgId) return (
     <main style={pageStyle}>
       <PageHeader title="Promise risk" />
@@ -23,7 +25,12 @@ export default async function Dashboard() {
       />
     </main>);
 
-  const m = computeMetrics(await listCommitments(orgId));
+  const commitments = await readPageData("/dashboard: commitment metrics", () => listCommitments(orgId));
+  if (commitments.unavailable) return <main style={pageStyle}>
+    <PageHeader title="Promise risk" />
+    <Unavailable section="Promise risk metrics are" />
+  </main>;
+  const m = computeMetrics(commitments.data ?? []);
 
   if (m.total === 0) return (
     <main style={pageStyle}>

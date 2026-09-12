@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { readPageData } from "@/lib/db/page-read";
+import { Unavailable } from "@/components/ui/Unavailable";
 import {
   getCurrentOrgId, listBoardTasks, listOpenReminders, loadOperationsData,
 } from "@/lib/db/queries";
@@ -11,7 +13,7 @@ import { PageHeader, EmptyState, buttonStyle, pageStyle } from "@/components/ui/
 export const dynamic = "force-dynamic";
 
 export default async function TasksPage() {
-  const orgId = await getCurrentOrgId();
+  const orgId = await getCurrentOrgId("/tasks");
   if (!orgId) return (
     <main style={pageStyle}>
       <PageHeader title="Task board" />
@@ -23,15 +25,20 @@ export default async function TasksPage() {
       />
     </main>);
 
-  const [tasks, reminders, opsData] = await Promise.all([
-    listBoardTasks(orgId), listOpenReminders(orgId), loadOperationsData(orgId),
+  const [board, reminders, operations] = await Promise.all([
+    readPageData("/tasks: task board with commitment/client", () => listBoardTasks(orgId)),
+    readPageData("/tasks: reminder with task", () => listOpenReminders(orgId)),
+    readPageData("/tasks: recurring data", () => loadOperationsData(orgId, "/tasks")),
   ]);
+  const tasks = board.data ?? [];
+  const opsData = operations.data;
+  const recurringUnavailable = !opsData || Object.values(opsData.unavailable).some(Boolean);
 
   const now = new Date();
   // Only what is due, and only patterns still alive: a promise last made three cycles ago
   // is an abandoned habit, not a prediction. Flagged by the detector's author as the main
   // false-positive risk, so it is filtered here rather than shown and explained away.
-  const suggestions = detectRecurring(opsData, now)
+  const suggestions = (recurringUnavailable ? [] : detectRecurring(opsData, now))
     .filter((p) => p.isDue)
     .filter((p) => (now.getTime() - Date.parse(p.lastSeenIso)) / 86_400_000
       <= p.medianGapDays * 3)
@@ -61,9 +68,9 @@ export default async function TasksPage() {
         product exists; a prediction is the lowest, because nobody has promised it yet.
         Putting guesses above failures inverted that, so the guesses moved below the board.
       */}
-      <ReminderStrip items={reminders} nowIso={now.toISOString()} />
+      {reminders.unavailable ? <Unavailable section="Reminders are" /> : <ReminderStrip items={reminders.data ?? []} nowIso={now.toISOString()} />}
 
-      {tasks.length === 0 ? (
+      {board.unavailable ? <Unavailable section="The task board is" /> : tasks.length === 0 ? (
         <EmptyState
           title="Nothing on the board yet"
           body="Approve a commitment in the queue and it becomes a task here, with its client, owner, and date attached."
@@ -74,7 +81,7 @@ export default async function TasksPage() {
         <TaskBoard items={tasks} nowIso={now.toISOString()} />
       )}
 
-      <RecurringSuggestions patterns={suggestions} />
+      {recurringUnavailable ? <Unavailable section="Recurring suggestions are" /> : <RecurringSuggestions patterns={suggestions} />}
     </main>
   );
 }

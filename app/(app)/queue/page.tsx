@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { readPageData } from "@/lib/db/page-read";
+import { Unavailable } from "@/components/ui/Unavailable";
 import {
   getCurrentOrgId, listCommitments, listFailedTranscripts, listOpenEscalations,
 } from "@/lib/db/queries";
@@ -8,7 +10,7 @@ import { EscalationStrip } from "@/components/queue/EscalationStrip";
 import { PageHeader, EmptyState, buttonStyle, pageStyle } from "@/components/ui/primitives";
 
 export default async function QueuePage() {
-  const orgId = await getCurrentOrgId();
+  const orgId = await getCurrentOrgId("/queue");
   if (!orgId) return (
     <main style={pageStyle}>
       <PageHeader title="Commitment queue" />
@@ -20,10 +22,12 @@ export default async function QueuePage() {
       />
     </main>);
 
-  const [items, failed, escalations] = await Promise.all([
-    listCommitments(orgId), listFailedTranscripts(orgId), listOpenEscalations(orgId),
+  const [commitments, failed, escalations] = await Promise.all([
+    readPageData("/queue: commitment", () => listCommitments(orgId)),
+    readPageData("/queue: transcript failed extractions", () => listFailedTranscripts(orgId)),
+    readPageData("/queue: escalation", () => listOpenEscalations(orgId)),
   ]);
-
+  const items = commitments.data ?? [];
   const needsReview = items.filter((c) => c.status === "proposed").length;
 
   return (
@@ -39,9 +43,9 @@ export default async function QueuePage() {
       />
 
       {/* Escalations first: a complaint outranks the queue it came from. */}
-      <EscalationStrip items={escalations} />
-      <NeedsAttention items={failed} />
-      <CommitmentList items={items} />
+      {escalations.unavailable ? <Unavailable section="Escalations are" /> : <EscalationStrip items={escalations.data ?? []} />}
+      {failed.unavailable ? <Unavailable section="Extraction alerts are" /> : <NeedsAttention items={failed.data ?? []} />}
+      {commitments.unavailable ? <Unavailable section="Commitments are" /> : <CommitmentList items={items} />}
     </main>
   );
 }

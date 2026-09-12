@@ -1,16 +1,36 @@
 import { getServerClient } from "./server";
 import { logFailure } from "@/lib/observability/log";
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
+import { readPageQuery } from "./page-read";
 import type { Commitment, DeliverableDraft, Transcript, Task, TaskStatus } from "@/lib/types";
 
-/** Org for the signed-in user, resolved from membership. Null when signed out. */
-export async function getCurrentOrgId(): Promise<string | null> {
+/** No session is normal; failure to verify an existing session is not sign-out. */
+export async function getCurrentUser(context: string, db?: Awaited<ReturnType<typeof getServerClient>>) {
+  const s = db ?? await getServerClient();
+  try {
+    const { data, error } = await s.auth.getUser();
+    if (error && !isAuthSessionMissingError(error)) throw error;
+    return data.user;
+  } catch (error) {
+    logFailure(`${context}: auth.getUser`, error);
+    throw new Error("Unable to verify your session. Please try again.", { cause: error });
+  }
+}
+
+/** Auth/org resolution is critical. Never substitute a default tenant on failure. */
+export async function getCurrentOrgId(context = "workspace"): Promise<string | null> {
   const s = await getServerClient();
-  const { data: auth } = await s.auth.getUser();
-  if (!auth.user) return null;
-  const { data, error } = await s.from("membership").select("org_id")
-    .eq("user_id", auth.user.id).limit(1).maybeSingle();
-  logFailure("getCurrentOrgId", error);
-  return (data?.org_id as string | undefined) ?? null;
+  const user = await getCurrentUser(context, s);
+  if (!user) return null;
+  try {
+    const { data, error } = await s.from("membership").select("org_id")
+      .eq("user_id", user.id).limit(1).maybeSingle();
+    if (error) throw error;
+    return (data?.org_id as string | undefined) ?? null;
+  } catch (error) {
+    logFailure(`${context}: membership org lookup`, error);
+    throw new Error("Unable to load your workspace. Please try again.", { cause: error });
+  }
 }
 
 export async function listCommitments(orgId: string): Promise<Commitment[]> {
@@ -19,14 +39,14 @@ export async function listCommitments(orgId: string): Promise<Commitment[]> {
   // in the queue with a badge — so it's excluded here rather than filtered per-view.
   const { data, error } = await s.from("commitment").select("*").eq("org_id", orgId)
     .neq("status", "rejected").order("created_at", { ascending: false });
-  logFailure("listCommitments", error);
+  if (error) throw error;
   return (data ?? []) as Commitment[];
 }
 
 export async function getCommitment(id: string): Promise<Commitment | null> {
   const s = await getServerClient();
-  const { data, error } = await s.from("commitment").select("*").eq("id", id).single();
-  logFailure("getCommitment", error);
+  const { data, error } = await s.from("commitment").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
   return (data ?? null) as Commitment | null;
 }
 
@@ -34,7 +54,7 @@ export async function getDraftForCommitment(id: string): Promise<DeliverableDraf
   const s = await getServerClient();
   const { data, error } = await s.from("deliverable_draft").select("*")
     .eq("commitment_id", id).limit(1).maybeSingle();
-  logFailure("getDraftForCommitment", error);
+  if (error) throw error;
   return (data ?? null) as DeliverableDraft | null;
 }
 
@@ -44,19 +64,19 @@ export async function listClients(orgId: string): Promise<ClientContact[]> {
   const s = await getServerClient();
   const { data, error } = await s.from("client_contact").select("id,org_id,name,kind")
     .eq("org_id", orgId).order("name");
-  logFailure("listClients", error);
+  if (error) throw error;
   return (data ?? []) as ClientContact[];
 }
 
 export async function getTranscriptForCommitment(commitmentId: string): Promise<Transcript | null> {
   const s = await getServerClient();
   const { data: c, error: commitmentError } = await s.from("commitment").select("conversation_id")
-    .eq("id", commitmentId).single();
-  logFailure("getTranscriptForCommitment.commitment", commitmentError);
+    .eq("id", commitmentId).maybeSingle();
+  if (commitmentError) throw new Error("commitment conversation lookup failed", { cause: commitmentError });
   if (!c) return null;
   const { data, error } = await s.from("transcript").select("*")
     .eq("conversation_id", c.conversation_id).limit(1).maybeSingle();
-  logFailure("getTranscriptForCommitment.transcript", error);
+  if (error) throw error;
   return (data ?? null) as Transcript | null;
 }
 
@@ -73,7 +93,7 @@ export async function listBoardTasks(orgId: string): Promise<BoardTask[]> {
     .select("id,commitment_id,title,owner,due,status,completed_at,commitment(client_contact(name))")
     .eq("org_id", orgId)
     .order("due", { ascending: true, nullsFirst: false });
-  logFailure("listBoardTasks", error);
+  if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id as string,
     commitment_id: r.commitment_id as string,
@@ -98,7 +118,7 @@ export async function listOpenReminders(orgId: string): Promise<OpenReminder[]> 
     .select("id,task_id,due_at,task(title)")
     .eq("org_id", orgId).eq("state", "open")
     .order("due_at", { ascending: true });
-  logFailure("listOpenReminders", error);
+  if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id as string,
     task_id: r.task_id as string,
@@ -108,24 +128,23 @@ export async function listOpenReminders(orgId: string): Promise<OpenReminder[]> 
 }
 
 /** Everything the operations map needs, in three reads. */
-export async function loadOperationsData(orgId: string): Promise<{
+export async function loadOperationsData(orgId: string, route = "/operations"): Promise<{
   commitments: Commitment[]; tasks: Task[]; clientNames: Record<string, string>;
+  unavailable: { commitments: boolean; tasks: boolean; clients: boolean };
 }> {
   const s = await getServerClient();
   const [commitments, tasks, clients] = await Promise.all([
-    s.from("commitment").select("*").eq("org_id", orgId).neq("status", "rejected"),
-    s.from("task").select("*").eq("org_id", orgId),
-    s.from("client_contact").select("id,name").eq("org_id", orgId),
+    readPageQuery(`${route}: commitment operations`, () => s.from("commitment").select("*").eq("org_id", orgId).neq("status", "rejected")),
+    readPageQuery(`${route}: task operations`, () => s.from("task").select("*").eq("org_id", orgId)),
+    readPageQuery(`${route}: client_contact operations`, () => s.from("client_contact").select("id,name").eq("org_id", orgId)),
   ]);
-  logFailure("loadOperationsData.commitments", commitments.error);
-  logFailure("loadOperationsData.tasks", tasks.error);
-  logFailure("loadOperationsData.clients", clients.error);
   const clientNames: Record<string, string> = {};
   for (const c of clients.data ?? []) clientNames[c.id as string] = c.name as string;
   return {
     commitments: (commitments.data ?? []) as Commitment[],
     tasks: (tasks.data ?? []) as Task[],
     clientNames,
+    unavailable: { commitments: commitments.unavailable, tasks: tasks.unavailable, clients: clients.unavailable },
   };
 }
 
@@ -144,7 +163,7 @@ export async function listOpenEscalations(orgId: string): Promise<OpenEscalation
     .select("id,kind,detail,severity,conversation_id,commitment_id,created_at,conversation(title)")
     .eq("org_id", orgId).eq("state", "open")
     .order("created_at", { ascending: false });
-  logFailure("listOpenEscalations", error);
+  if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id as string,
     kind: r.kind as string,
@@ -166,7 +185,7 @@ export async function listFailedTranscripts(orgId: string): Promise<FailedTransc
   const { data, error } = await s.from("transcript")
     .select("id,conversation_id,extraction_error,conversation(title)")
     .eq("org_id", orgId).eq("extraction_status", "failed");
-  logFailure("listFailedTranscripts", error);
+  if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id as string,
     conversation_id: r.conversation_id as string,

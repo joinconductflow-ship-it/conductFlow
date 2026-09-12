@@ -1,17 +1,19 @@
-import { getServerClient } from "@/lib/db/server";
+import { getCurrentUser } from "@/lib/db/queries";
+import { readPageData } from "@/lib/db/page-read";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { AppNav } from "@/components/nav/AppNav";
 
 /** Reading the session needs cookies, so this group never prerenders. */
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const db = await getServerClient();
-  const { data } = await db.auth.getUser();
-  const email = data.user?.email ?? null;
+  // This lookup decorates navigation only. Each protected page/action verifies access.
+  const user = await readPageData("app layout: navigation auth", () => getCurrentUser("app layout"));
+  const email = user.data?.email ?? null;
 
   // Signed out, every link would land on a "sign in" stub, so the nav stays away entirely
   // and /onboarding keeps the page to itself.
-  if (!email) return <>{children}</>;
+  if (!email) return <>{user.unavailable && <Unavailable section="Account navigation is" />}{children}</>;
 
   return (
     <>

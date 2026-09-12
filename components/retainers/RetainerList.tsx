@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { createRetainer, logUsage, pushRetainerDraft } from "@/app/actions/retainers";
 import type { Retainer } from "@/lib/retainers/ledger";
 import {
@@ -8,12 +9,13 @@ import {
 } from "@/components/ui/primitives";
 
 export interface RetainerListProps {
+  unavailable?: Partial<Record<"clients" | "retainers" | "drafts", boolean>>;
   clients: { id: string; name: string }[];
   retainers: Retainer[];
   drafts: { id: string; source_id: string; subject: string | null; body: string }[];
 }
 
-export function RetainerList({ clients, retainers, drafts }: RetainerListProps) {
+export function RetainerList({ clients, retainers, drafts, unavailable = {} }: RetainerListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function RetainerList({ clients, retainers, drafts }: RetainerListProps) 
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
       {error && <p role="alert" style={{ color: "var(--danger-text)" }}>{error}</p>}
       {note && <p role="status" style={{ color: "var(--muted)" }}>{note}</p>}
-      {clients.length === 0 ? (
+      {unavailable.clients ? <Unavailable section="Clients are" /> : clients.length === 0 ? (
         <EmptyState title="No clients yet" body="Add a client when adding a transcript, then create their package here." />
       ) : (
         <Card>
@@ -76,7 +78,8 @@ export function RetainerList({ clients, retainers, drafts }: RetainerListProps) 
           </form>
         </Card>
       )}
-      {retainers.length === 0 && <EmptyState title="No retainers yet" body="Create a package above to track its balance and renewal offers." />}
+      {unavailable.retainers ? <Unavailable section="Retainers are" /> : retainers.length === 0 && <EmptyState title="No retainers yet" body="Create a package above to track its balance and renewal offers." />}
+      {unavailable.drafts && <Unavailable section="Renewal drafts are" />}
       {retainers.map((retainer) => (
         <Card key={retainer.id}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" }}>

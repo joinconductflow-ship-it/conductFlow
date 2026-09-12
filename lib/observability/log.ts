@@ -7,11 +7,20 @@
 export function logFailure(where: string, error: unknown): void {
   if (!error) return;
   let message: string;
-  if (error instanceof Error) {
-    message = error.message;
-  } else if (typeof error === "object") {
+  if (typeof error === "object") {
     try {
-      message = JSON.stringify(error);
+      const seen = new WeakSet<object>();
+      message = JSON.stringify(error, (_key, value) => {
+        if (value && typeof value === "object") {
+          if (seen.has(value)) return "[Circular]";
+          seen.add(value);
+          if (value instanceof Error) return {
+            ...value, name: value.name, message: value.message,
+            stack: value.stack, cause: value.cause,
+          };
+        }
+        return value;
+      });
     } catch {
       message = Object.prototype.toString.call(error);
     }

@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { getCurrentOrgId } from "@/lib/db/queries";
 import { getServerClient } from "@/lib/db/server";
+import { readPageQuery } from "@/lib/db/page-read";
 import { LeadInbox, type LeadInboxProps } from "@/components/leads/LeadInbox";
 import { PageHeader, EmptyState, buttonStyle, pageStyle, columnStyle } from "@/components/ui/primitives";
 
 export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
-  const orgId = await getCurrentOrgId();
+  const orgId = await getCurrentOrgId("/leads");
   if (!orgId) return (
     <main style={pageStyle}>
       <PageHeader title="Leads" />
@@ -21,16 +22,13 @@ export default async function LeadsPage() {
 
   const db = await getServerClient();
   const [prospects, drafts] = await Promise.all([
-    db.from("prospect")
+    readPageQuery("/leads: prospect", () => db.from("prospect")
       .select("id,name,email,service_interest,urgency,status,created_at")
-      .eq("org_id", orgId).order("created_at", { ascending: false }),
-    db.from("prospect_message_draft").select("id,prospect_id,subject,body")
+      .eq("org_id", orgId).order("created_at", { ascending: false })),
+    readPageQuery("/leads: prospect_message_draft lead_reply", () => db.from("prospect_message_draft").select("id,prospect_id,subject,body")
       .eq("org_id", orgId).eq("kind", "lead_reply").is("provider_draft_id", null)
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })),
   ]);
-  for (const result of [prospects, drafts]) {
-    if (result.error) throw result.error;
-  }
 
   return (
     <main style={pageStyle}>
@@ -38,6 +36,7 @@ export default async function LeadsPage() {
         <PageHeader title="Leads"
           lede="Paste a new inquiry — from email, a web form, a DM, anywhere — to extract what they need and draft the reply." />
         <LeadInbox
+          unavailable={{ prospects: prospects.unavailable, drafts: drafts.unavailable }}
           prospects={(prospects.data ?? []) as LeadInboxProps["prospects"]}
           drafts={(drafts.data ?? []) as LeadInboxProps["drafts"]}
         />

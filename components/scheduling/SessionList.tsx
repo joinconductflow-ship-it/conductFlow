@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { createScheduledSession, markScheduledSession, pushSchedulingDraft } from "@/app/actions/scheduling";
 import type { ScheduledSession } from "@/lib/scheduling/no-show";
 import {
@@ -8,13 +9,14 @@ import {
 } from "@/components/ui/primitives";
 
 export interface SessionListProps {
+  unavailable?: Partial<Record<"clients" | "sessions" | "drafts", boolean>>;
   clients: { id: string; name: string }[];
   sessions: ScheduledSession[];
   drafts: { id: string; source_id: string; client_id: string; subject: string | null; body: string }[];
   nowIso: string;
 }
 
-export function SessionList({ clients, sessions, drafts, nowIso }: SessionListProps) {
+export function SessionList({ clients, sessions, drafts, nowIso, unavailable = {} }: SessionListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export function SessionList({ clients, sessions, drafts, nowIso }: SessionListPr
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
       {error && <p role="alert" style={{ color: "var(--danger-text)" }}>{error}</p>}
       {note && <p role="status" style={{ color: "var(--muted)" }}>{note}</p>}
-      {clients.length === 0 ? (
+      {unavailable.clients ? <Unavailable section="Clients are" /> : clients.length === 0 ? (
         <EmptyState title="No clients yet" body="Add a client when adding a transcript, then schedule their session here." />
       ) : (
         <Card>
@@ -74,7 +76,7 @@ export function SessionList({ clients, sessions, drafts, nowIso }: SessionListPr
           </form>
         </Card>
       )}
-      {sessions.length === 0 && <EmptyState title="No sessions yet" body="Schedule a session above to track attendance and rescheduling offers." />}
+      {unavailable.sessions ? <Unavailable section="Sessions are" /> : sessions.length === 0 && <EmptyState title="No sessions yet" body="Schedule a session above to track attendance and rescheduling offers." />}
       {sessions.map((session) => (
         <Card key={session.id}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" }}>
@@ -101,6 +103,7 @@ export function SessionList({ clients, sessions, drafts, nowIso }: SessionListPr
           )}
         </Card>
       ))}
+      {unavailable.drafts && <Unavailable section="Rescheduling drafts are" />}
       {drafts.map((draft) => {
         const session = sessions.find((row) => row.id === draft.source_id);
         const awaitingReschedule = session?.status === "scheduled" || session?.status === "no_show";

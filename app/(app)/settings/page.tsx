@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getCurrentOrgId } from "@/lib/db/queries";
 import { getServerClient } from "@/lib/db/server";
+import { readPageQuery } from "@/lib/db/page-read";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { CAPABILITIES, type Capability } from "@/lib/google/scopes";
 import { ConnectionList } from "@/components/settings/ConnectionList";
 import {
@@ -20,7 +22,7 @@ const column: React.CSSProperties = { maxWidth: 720 };
 export default async function SettingsPage({ searchParams }:
   { searchParams: Promise<{ error?: string; connected?: string }> }) {
   const { error, connected } = await searchParams;
-  const orgId = await getCurrentOrgId();
+  const orgId = await getCurrentOrgId("/settings");
   if (!orgId) return (
     <main style={pageStyle}>
       <PageHeader title="Settings" />
@@ -35,9 +37,9 @@ export default async function SettingsPage({ searchParams }:
   // The view, not the table: it projects no sealed material, and the table itself is
   // granted to service_role alone.
   const db = await getServerClient();
-  const { data } = await db.from("connected_data_source_public")
-    .select("id,account_email,scopes,state,created_at").eq("org_id", orgId);
-  const rows = (data ?? []) as ConnectionRow[];
+  const connections = await readPageQuery("/settings: connected_data_source_public", () => db.from("connected_data_source_public")
+    .select("id,account_email,scopes,state,created_at").eq("org_id", orgId));
+  const rows = (connections.data ?? []) as ConnectionRow[];
   const granted = new Set(rows.filter((r) => r.state === "active").flatMap((r) => r.scopes));
 
   const capabilities = (Object.keys(CAPABILITIES) as Capability[]).map((key) => ({
@@ -74,7 +76,7 @@ export default async function SettingsPage({ searchParams }:
       )}
 
       <SectionHeading>Google capabilities</SectionHeading>
-      <ConnectionList capabilities={capabilities} connections={rows} />
+      {connections.unavailable ? <Unavailable section="Google connections are" /> : <ConnectionList capabilities={capabilities} connections={rows} />}
 
       <div style={{ marginTop: "var(--space-7)" }}>
         <SectionHeading>Permissions</SectionHeading>

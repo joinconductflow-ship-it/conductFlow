@@ -1,12 +1,14 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { submitInquiry, convertProspect, pushLeadReplyDraft } from "@/app/actions/leads";
 import {
   Card, CardTitle, Badge, EmptyState, buttonStyle, fieldStyle, labelStyle, proseStyle,
 } from "@/components/ui/primitives";
 
 export interface LeadInboxProps {
+  unavailable?: Partial<Record<"prospects" | "drafts", boolean>>;
   prospects: {
     id: string; name: string | null; email: string | null;
     service_interest: string | null; urgency: "low" | "medium" | "high";
@@ -17,7 +19,7 @@ export interface LeadInboxProps {
 
 const URGENCY_TONE = { low: "neutral", medium: "accent", high: "danger" } as const;
 
-export function LeadInbox({ prospects, drafts }: LeadInboxProps) {
+export function LeadInbox({ prospects, drafts, unavailable = {} }: LeadInboxProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export function LeadInbox({ prospects, drafts }: LeadInboxProps) {
         </form>
       </Card>
 
+      {unavailable.drafts && <Unavailable section="Pending replies are" />}
       {drafts.length > 0 && (
         <div style={{ display: "grid", gap: "var(--space-3)" }}>
           <CardTitle>Pending replies</CardTitle>
@@ -86,7 +89,7 @@ export function LeadInbox({ prospects, drafts }: LeadInboxProps) {
 
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
         <CardTitle>Prospects</CardTitle>
-        {prospects.length === 0 ? (
+        {unavailable.prospects ? <Unavailable section="Prospects are" /> : prospects.length === 0 ? (
           <EmptyState title="No prospects yet" body="Paste an inquiry above to get started." />
         ) : prospects.map((p) => (
           <Card key={p.id}>

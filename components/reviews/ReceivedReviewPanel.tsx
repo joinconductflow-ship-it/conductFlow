@@ -1,10 +1,12 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { markReviewStatus, submitReview } from "@/app/actions/reviews";
 import { Card, CardTitle, EmptyState, buttonStyle, proseStyle } from "@/components/ui/primitives";
 
 export interface ReceivedReviewPanelProps {
+  unavailable?: boolean;
   reviews: { id: string; reviewer_name: string | null; source: string | null;
     rating: number | null; raw_review: string; sentiment: string; urgency: string;
     drafted_response: string | null; status: string }[];
@@ -18,7 +20,7 @@ function badgeStyle(value: string) {
   };
 }
 
-export function ReceivedReviewPanel({ reviews }: ReceivedReviewPanelProps) {
+export function ReceivedReviewPanel({ reviews, unavailable }: ReceivedReviewPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export function ReceivedReviewPanel({ reviews }: ReceivedReviewPanelProps) {
           </button>
         </form>
       </Card>
-      {reviews.length === 0 ? <EmptyState title="No reviews yet"
+      {unavailable ? <Unavailable section="Received reviews are" /> : reviews.length === 0 ? <EmptyState title="No reviews yet"
         body="Paste a review you received to classify it and draft a reply." /> : reviews.map((review) => (
         <Card key={review.id} style={review.status === "new" ? undefined : { opacity: 0.6 }}>
           <CardTitle>{review.reviewer_name || "Anonymous"}</CardTitle>

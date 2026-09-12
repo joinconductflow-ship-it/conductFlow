@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { readPageData } from "@/lib/db/page-read";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { getCurrentOrgId, loadOperationsData } from "@/lib/db/queries";
 import {
   buildOperationsMap, OPERATIONS_MAP_MIN_COMMITMENTS, type LeadTime,
@@ -23,7 +25,7 @@ function leadTimeText(lead: LeadTime | null): string {
 }
 
 export default async function OperationsPage() {
-  const orgId = await getCurrentOrgId();
+  const orgId = await getCurrentOrgId("/operations");
   if (!orgId) return (
     <main style={pageStyle}>
       <PageHeader title="Operations map" />
@@ -34,7 +36,13 @@ export default async function OperationsPage() {
       />
     </main>);
 
-  const map = buildOperationsMap(await loadOperationsData(orgId), new Date());
+  const result = await readPageData("/operations: operations data", () => loadOperationsData(orgId));
+  const data = result.data;
+  if (!data || data.unavailable.commitments || data.unavailable.tasks) return <main style={pageStyle}>
+    <PageHeader title="Operations map" />
+    <Unavailable section="Operations metrics are" />
+  </main>;
+  const map = buildOperationsMap(data, new Date());
 
   if (map.totalCommitments === 0) return (
     <main style={pageStyle}>
@@ -69,6 +77,7 @@ export default async function OperationsPage() {
         lede={`What your conversations actually promise, drawn from ${map.totalCommitments} commitment${map.totalCommitments === 1 ? "" : "s"}${map.observed ? ` over ${map.observed.days} day${map.observed.days === 1 ? "" : "s"}` : ""}.`}
       />
 
+      {data.unavailable.clients && <Unavailable section="Client names are" />}
       {learning && (
         <Card tone="accent" style={{ marginBottom: "var(--space-5)" }}>
           <CardTitle tone="accent" dot>Still learning how you work</CardTitle>

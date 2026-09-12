@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getCurrentOrgId } from "@/lib/db/queries";
 import { getServerClient } from "@/lib/db/server";
+import { readPageData } from "@/lib/db/page-read";
+import { Unavailable } from "@/components/ui/Unavailable";
 import { getUtilizationSummary } from "@/lib/reports/utilization";
 import { UtilizationPanel } from "@/components/reports/UtilizationPanel";
 import { PageHeader, EmptyState, buttonStyle, pageStyle, columnStyle } from "@/components/ui/primitives";
@@ -8,7 +10,7 @@ import { PageHeader, EmptyState, buttonStyle, pageStyle, columnStyle } from "@/c
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const orgId = await getCurrentOrgId();
+  const orgId = await getCurrentOrgId("/reports");
   if (!orgId) return (
     <main style={pageStyle}>
       <PageHeader title="Reports" />
@@ -20,12 +22,14 @@ export default async function ReportsPage() {
     </main>);
 
   const db = await getServerClient();
-  const data = await getUtilizationSummary(db, { orgId });
+  // An incomplete financial rollup must not display missing reads as zero revenue.
+  const result = await readPageData("/reports: utilization (time_entry, invoice, client_contact, billing_rate)",
+    () => getUtilizationSummary(db, { orgId }));
   return (
     <main style={pageStyle}>
       <div style={columnStyle}>
         <PageHeader title="Reports" lede="Review client utilization and billed and unbilled revenue." />
-        <UtilizationPanel data={data} />
+        {result.unavailable ? <Unavailable section="Client utilization is" /> : <UtilizationPanel data={result.data ?? []} />}
       </div>
     </main>
   );
