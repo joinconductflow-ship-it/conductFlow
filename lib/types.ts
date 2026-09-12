@@ -4,6 +4,43 @@ export type { TaskStatus };
 
 export type Confidence = "high" | "medium" | "low";
 export type SuggestedActionType = "gmail_draft" | "calendar_event" | "drive_document" | "internal_task";
+export type ActionExecutionState =
+  | "proposed"
+  | "ready"
+  | "needs_info"
+  | "schedule_conflict"
+  | "executing"
+  | "created"
+  | "failed"
+  | "blocked"
+  | "reconnect_google";
+
+export interface ActionInputData {
+  recipient?: string | null;
+  event_type?: string;
+  person?: string;
+  date?: string;
+  start_time?: string;
+  duration_minutes?: number;
+  time_zone?: string;
+  location?: string;
+  notes?: string;
+  recurrence_rule?: string;
+  recurrence_text?: string;
+  relative_date?: boolean;
+  relative_date_confirmed?: boolean;
+  recurrence_confirmed?: boolean;
+  conflict_confirmed?: boolean;
+  document_title?: string;
+  document_summary?: string;
+  document_body?: string;
+  document_details?: string;
+}
+
+export interface ActionPreviewData {
+  conflicts?: Array<{ id: string; title: string | null; start: string; end: string | null }>;
+  gmail_doc_link_pending?: boolean;
+}
 export type CommitmentStatus = "proposed" | "approved" | "tasked" | "done" | "rejected";
 export type Role = "owner" | "member";
 
@@ -41,6 +78,15 @@ export interface CommitmentActionSuggestion {
   rationale: string;
   required_data: string[];
   missing_data: string[];
+  input_data?: ActionInputData;
+  preview_data?: ActionPreviewData;
+  execution_state?: ActionExecutionState;
+  external_id?: string | null;
+  external_url?: string | null;
+  last_error?: string | null;
+  executing_at?: string | null;
+  executed_at?: string | null;
+  updated_at?: string;
   created_at: string;
 }
 export interface ApprovalEvent {

@@ -235,6 +235,9 @@ async function finishIngestAfterExtraction(
   // ask isn't quietly treated as ordinary, already-agreed-to work.
   // Plan only after extraction has persisted the promise. Planning may suggest no actions;
   // it is never permission to perform an external action.
+  // Provider execution state on these rows is server-owned. The org was already proven by
+  // the RLS-backed commitment writes above, so only this protected insert uses service role.
+  const suggestionDb = getServiceClient();
   const planned = await Promise.allSettled(pairs.map(async ({ id, commitment: c }) => {
     const plan = await planCommitmentActions({
       commitmentText: c.text,
@@ -245,7 +248,7 @@ async function finishIngestAfterExtraction(
     }, model);
 
     if (plan.actions.length > 0) {
-      const { error } = await db.from("commitment_action_suggestion").insert(
+      const { error } = await suggestionDb.from("commitment_action_suggestion").insert(
         plan.actions.map((action) => ({
           org_id: ctx.orgId,
           commitment_id: id,

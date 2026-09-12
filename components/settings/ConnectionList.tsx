@@ -21,8 +21,8 @@ interface ConnectionRow {
  * permits it. The guarantee is that this product contains no send call at all.
  */
 const LIMITS: Record<string, string> = {
-  drive_templates: "Cannot see any other file in your Drive.",
-  calendar_context: "Read-only. Cannot create, move, or cancel anything.",
+  drive_templates: "Creates private Docs only. Never auto-shares files.",
+  calendar_context: "Never adds guests and only creates events after approval.",
   gmail_drafts: "Only writes drafts. ConductFlow has no ability to send mail at all.",
   gmail_watch: "Read-only. Cannot send, delete, or modify anything in your inbox.",
 };

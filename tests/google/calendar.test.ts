@@ -20,8 +20,10 @@ function fakeFetch(response: { ok?: boolean; status?: number; json?: unknown }) 
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("createCalendarClient", () => {
-  it("exposes only the list method", () => {
-    expect(Object.keys(createCalendarClient(TOKEN))).toEqual(["listEvents"]);
+  it("exposes list, meta, get, and create methods", () => {
+    expect(Object.keys(createCalendarClient(TOKEN))).toEqual([
+      "listEvents", "listEventsWithMeta", "getEvent", "createEvent",
+    ]);
   });
 
   it("requests single events in the given window, ordered by start", async () => {
@@ -72,8 +74,83 @@ describe("createCalendarClient", () => {
     expect(await createCalendarClient(TOKEN).listEvents(RANGE)).toEqual([]);
   });
 
+  it("follows every events.list page token", async () => {
+    const fetchMock = vi.fn(async (url: string) => ({
+      ok: true,
+      status: 200,
+      text: async () => "",
+      json: async () => url.includes("pageToken=page-2")
+        ? {
+            items: [{ id: "event-26", summary: "Later conflict", start: { dateTime: "2026-08-11T16:00:00Z" } }],
+          }
+        : {
+            items: [{ id: "event-1", summary: "First event", start: { dateTime: "2026-08-11T08:00:00Z" } }],
+            timeZone: "America/New_York",
+            nextPageToken: "page-2",
+          },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createCalendarClient(TOKEN).listEventsWithMeta(RANGE);
+
+    expect(result.events.map((event) => event.id)).toEqual(["event-1", "event-26"]);
+    expect(result.timeZone).toBe("America/New_York");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toContain("pageToken=page-2");
+  });
+
   it("throws with the status when the request fails", async () => {
     fakeFetch({ ok: false, status: 401 });
     await expect(createCalendarClient(TOKEN).listEvents(RANGE)).rejects.toThrow(/401/);
+  });
+
+  it("reuses an existing event instead of creating a copy", async () => {
+    const posts: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
+      if ((init?.method ?? "GET") === "GET") {
+        return {
+          ok: true, status: 200, text: async () => "",
+          json: async () => ({ id: "existing-1", summary: "Meeting — Client", htmlLink: "https://calendar.google.com/event?eid=e1" }),
+        };
+      }
+      posts.push(JSON.parse(init!.body!));
+      return { ok: true, status: 200, text: async () => "", json: async () => ({}) };
+    }));
+
+    const event = await createCalendarClient(TOKEN).createEvent({
+      actionId: "abc123", title: "Meeting — Client",
+      start: "2026-08-11T14:00:00.000Z", end: "2026-08-11T14:30:00.000Z", timeZone: "UTC",
+    });
+    expect(event.id).toBe("existing-1");
+    expect(event.htmlLink).toBe("https://calendar.google.com/event?eid=e1");
+    expect(posts).toHaveLength(0);
+  });
+
+  it("posts the event with a stable id, title, times, and no attendees", async () => {
+    const posts: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
+      if ((init?.method ?? "GET") === "GET") {
+        return { ok: false, status: 404, text: async () => "", json: async () => ({}) };
+      }
+      posts.push(JSON.parse(init!.body!));
+      return {
+        ok: true, status: 200, text: async () => "",
+        json: async () => ({ id: "cfabc123", summary: "Call — Client", htmlLink: "https://calendar.google.com/event?eid=new" }),
+      };
+    }));
+
+    const event = await createCalendarClient(TOKEN).createEvent({
+      actionId: "abc123", title: "Call — Client",
+      start: "2026-08-11T14:00:00.000Z", end: "2026-08-11T14:30:00.000Z", timeZone: "UTC",
+      recurrence: "RRULE:FREQ=WEEKLY",
+    });
+    expect(event.id).toBe("cfabc123");
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({
+      id: "cfabc123",
+      summary: "Call — Client",
+      recurrence: ["RRULE:FREQ=WEEKLY"],
+    });
+    expect(posts[0] as Record<string, unknown>).not.toHaveProperty("attendees");
   });
 });

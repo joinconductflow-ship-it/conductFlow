@@ -4,14 +4,14 @@
  */
 export const CAPABILITIES = {
   drive_templates: {
-    label: "Use our Drive templates",
-    detail: "Reads only the template files you pick — never the rest of your Drive.",
+    label: "Use templates and create Google Docs",
+    detail: "Reads only files you pick and creates private Docs for approved actions.",
     scopes: ["https://www.googleapis.com/auth/drive.file"],
   },
   calendar_context: {
-    label: "Read meeting context from Calendar",
-    detail: "Reads event titles and times around a conversation. Attendee emails are never stored.",
-    scopes: ["https://www.googleapis.com/auth/calendar.events.readonly"],
+    label: "Check availability and create Calendar events",
+    detail: "Checks the primary calendar and creates only events you explicitly approve.",
+    scopes: ["https://www.googleapis.com/auth/calendar.events.owned"],
   },
   gmail_drafts: {
     label: "Put follow-ups in my Gmail drafts",

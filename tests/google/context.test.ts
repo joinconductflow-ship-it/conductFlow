@@ -10,12 +10,17 @@ function fakeDrive(files: DriveFile[], bodies: Record<string, string> = {}): Dri
   return {
     listFiles: async () => files,
     readFile: async (f) => bodies[f.id] ?? "",
+    findCreatedDocument: async () => null,
+    createGoogleDoc: async () => { throw new Error("createGoogleDoc is not used by draft context"); },
   };
 }
 
 function fakeCalendar(events: CalendarEvent[], seen?: DayRange[]): CalendarClient {
   return {
     listEvents: async (range) => { seen?.push(range); return events; },
+    listEventsWithMeta: async () => ({ events, timeZone: null }),
+    getEvent: async () => null,
+    createEvent: async () => { throw new Error("createEvent is not used by draft context"); },
   };
 }
 
@@ -102,6 +107,8 @@ describe("buildDraftContext — templates", () => {
     const drive: DriveClient = {
       listFiles: async () => { throw new Error("drive exploded"); },
       readFile: async () => "",
+      findCreatedDocument: async () => null,
+      createGoogleDoc: async () => { throw new Error("unused"); },
     };
     const ctx = await buildDraftContext({ drive, calendar: emptyCalendar, clientName: CLIENT, occurredAt: OCCURRED_AT });
     expect(ctx.templateText).toBeNull();
@@ -111,6 +118,8 @@ describe("buildDraftContext — templates", () => {
     const drive: DriveClient = {
       listFiles: async () => [file("t", "Follow-up template", "2026-08-10T09:00:00Z")],
       readFile: async () => { throw new Error("404"); },
+      findCreatedDocument: async () => null,
+      createGoogleDoc: async () => { throw new Error("unused"); },
     };
     const ctx = await buildDraftContext({ drive, calendar: emptyCalendar, clientName: CLIENT, occurredAt: OCCURRED_AT });
     expect(ctx.templateText).toBeNull();
@@ -172,6 +181,9 @@ describe("buildDraftContext — calendar", () => {
   it("degrades to no meeting context when Calendar fails", async () => {
     const calendar: CalendarClient = {
       listEvents: async () => { throw new Error("calendar exploded"); },
+      listEventsWithMeta: async () => { throw new Error("unused"); },
+      getEvent: async () => null,
+      createEvent: async () => { throw new Error("unused"); },
     };
     const ctx = await buildDraftContext({ drive: emptyDrive, calendar, clientName: CLIENT, occurredAt: OCCURRED_AT });
     expect(ctx.meetingContext).toBeNull();

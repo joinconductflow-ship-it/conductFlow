@@ -1,13 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+const { serviceDb } = vi.hoisted(() => ({
+  serviceDb: {
+    from: vi.fn(() => ({
+      insert: vi.fn(async () => ({ error: null })),
+    })),
+  },
+}));
+
 vi.mock("@/lib/agent/blueprint-store", () => ({ contractFor: vi.fn() }));
 vi.mock("@/lib/agent/extract", () => ({ extractCommitments: vi.fn() }));
 vi.mock("@/lib/agent/action-plan", () => ({ planCommitmentActions: vi.fn() }));
 vi.mock("@/lib/agent/draft", () => ({ generateFollowUpDraft: vi.fn() }));
 vi.mock("@/lib/agent/scope-check", () => ({ gateCommitmentScope: vi.fn() }));
 vi.mock("@/lib/google/draft-context", () => ({ contextForOrg: vi.fn() }));
-vi.mock("@/lib/db/service", () => ({ getServiceClient: () => ({}) }));
+vi.mock("@/lib/db/service", () => ({ getServiceClient: () => serviceDb }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));
 
 import { runIngest } from "@/lib/ingest/run";

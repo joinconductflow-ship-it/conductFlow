@@ -234,7 +234,7 @@ describe("independent sections and safe fallbacks", () => {
     }];
     const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));
     expect(html).toContain("Create event");
-    expect(html).toContain("Time needed");
+    expect(html).toContain("Needs info");
     expect(html).not.toContain("Create draft");
     expect(html).not.toContain("Track commitment");
   });

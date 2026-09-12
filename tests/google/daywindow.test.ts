@@ -6,6 +6,8 @@ import type { DriveClient } from "@/lib/google/drive";
 const noDrive: DriveClient = {
   listFiles: async () => [],
   readFile: async () => "",
+  findCreatedDocument: async () => null,
+  createGoogleDoc: async () => { throw new Error("createGoogleDoc is not used by draft context"); },
 };
 
 /** Records the window the calendar was asked for. */
@@ -13,6 +15,9 @@ function recordingCalendar() {
   const asked: { timeMin: string; timeMax: string }[] = [];
   const calendar: CalendarClient = {
     listEvents: async (range) => { asked.push(range); return []; },
+    listEventsWithMeta: async () => ({ events: [], timeZone: null }),
+    getEvent: async () => null,
+    createEvent: async () => { throw new Error("createEvent is not used by draft context"); },
   };
   return { calendar, asked };
 }

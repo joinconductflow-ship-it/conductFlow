@@ -22,6 +22,8 @@ export const EDITABLE_ACTIONS = [
   "create_internal_task",
   "propose_recurring_task",
   "push_email_draft",
+  "create_calendar_event",
+  "create_drive_document",
   "edit_crm",
   "draft_retainer_renewal",
   "draft_document_reminder",
@@ -39,7 +41,9 @@ export const EDITABLE_ACTIONS = [
  * These reach a customer or an outside system. An org may decide *whether* the agent does
  * them at all, but never that it does them unattended.
  */
-export const ALWAYS_NEEDS_APPROVAL = ["push_email_draft", "edit_crm"] as const;
+export const ALWAYS_NEEDS_APPROVAL = [
+  "push_email_draft", "create_calendar_event", "create_drive_document", "edit_crm",
+] as const;
 
 export type EditableAction = (typeof EDITABLE_ACTIONS)[number];
 
@@ -60,7 +64,7 @@ export const DEFAULT_BLUEPRINT: BlueprintRow = {
     "draft_invoice", "draft_collections_reminder", "draft_payment_risk_checkin", "draft_review_request", "draft_review_response",
     "draft_lead_reply"],
   required_approvals: ["push_email_draft", "edit_crm", "create_internal_task",
-    "propose_recurring_task"],
+    "propose_recurring_task", "create_calendar_event", "create_drive_document"],
   escalation_conditions: ["complaint", "legal_concern", "missing_owner_or_deadline"],
   success_metric: "follow_up_sent_within_24h",
   expires_in_minutes: 60,

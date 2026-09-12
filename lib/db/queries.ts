@@ -70,14 +70,23 @@ export async function getActionSuggestionsForCommitment(
 ): Promise<CommitmentActionSuggestion[]> {
   const s = await getServerClient();
   const { data, error } = await s.from("commitment_action_suggestion")
-    .select("id,org_id,commitment_id,action_type,confidence,rationale,required_data,missing_data,created_at")
+    .select("id,org_id,commitment_id,action_type,confidence,rationale,required_data,missing_data,input_data,preview_data,execution_state,external_id,external_url,last_error,executing_at,executed_at,updated_at,created_at")
     .eq("commitment_id", commitmentId)
+    .in("confidence", ["high", "medium"])
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as CommitmentActionSuggestion[];
 }
 
 export interface ClientContact { id: string; org_id: string; name: string; kind: string | null; }
+
+export async function getClientContact(id: string): Promise<ClientContact | null> {
+  const s = await getServerClient();
+  const { data, error } = await s.from("client_contact").select("id,org_id,name,kind")
+    .eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as ClientContact | null;
+}
 
 export async function listClients(orgId: string): Promise<ClientContact[]> {
   const s = await getServerClient();

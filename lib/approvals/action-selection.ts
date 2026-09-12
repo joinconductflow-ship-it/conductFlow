@@ -1,10 +1,24 @@
-import type { CommitmentActionSuggestion, SuggestedActionType } from "@/lib/types";
+import type {
+  ActionExecutionState,
+  CommitmentActionSuggestion,
+  SuggestedActionType,
+} from "@/lib/types";
+
+export interface ActionExecutionResult {
+  id: string;
+  type: SuggestedActionType;
+  state: ActionExecutionState;
+  externalId?: string | null;
+  externalUrl?: string | null;
+  error?: string | null;
+}
 
 export interface ApprovedActionRunResult {
-  gmail?: { pushed: boolean; reason?: string };
-  taskCreated: boolean;
-  proposedOnly: SuggestedActionType[];
+  actions: ActionExecutionResult[];
+  complete: boolean;
 }
+
+type Handler = (suggestion: CommitmentActionSuggestion) => Promise<ActionExecutionResult>;
 
 export function selectPersistedSuggestions(
   requestedIds: readonly string[],
@@ -18,30 +32,71 @@ export function selectPersistedSuggestions(
   if (selected.some((suggestion) => !suggestion)) {
     throw new Error("One or more selected actions are no longer available");
   }
-  return selected as CommitmentActionSuggestion[];
+  if (selected.some((suggestion) => suggestion?.confidence === "low")) {
+    throw new Error("Low-confidence actions cannot be approved");
+  }
+
+  // The database also enforces one row per type. Keep this guard so a malformed fixture,
+  // stale migration, or future importer cannot execute duplicate outputs in one click.
+  const seen = new Set<SuggestedActionType>();
+  return (selected as CommitmentActionSuggestion[]).filter((suggestion) => {
+    if (seen.has(suggestion.action_type)) return false;
+    seen.add(suggestion.action_type);
+    return true;
+  });
+}
+
+const ORDER: SuggestedActionType[] = [
+  "drive_document",
+  "calendar_event",
+  "internal_task",
+  "gmail_draft",
+];
+
+function didNotCreate(result: ActionExecutionResult | undefined): boolean {
+  return !!result && result.state !== "created";
 }
 
 export async function runApprovedActionSelection(
   selected: readonly CommitmentActionSuggestion[],
-  handlers: {
-    createTask: () => Promise<void>;
-    pushGmailDraft: () => Promise<{ pushed: boolean; reason?: string }>;
-  },
+  handlers: Record<SuggestedActionType, Handler>,
 ): Promise<ApprovedActionRunResult> {
-  const types = new Set(selected.map((suggestion) => suggestion.action_type));
-  let taskCreated = false;
-  let gmail: ApprovedActionRunResult["gmail"];
+  const byType = new Map(selected.map((suggestion) => [suggestion.action_type, suggestion]));
+  const results: ActionExecutionResult[] = [];
 
-  if (types.has("internal_task")) {
-    await handlers.createTask();
-    taskCreated = true;
+  for (const type of ORDER) {
+    const suggestion = byType.get(type);
+    if (!suggestion) continue;
+
+    // A Gmail action from the same commitment uses the newly-created Doc URL. If Drive
+    // failed, Gmail remains pending instead of producing a draft with a broken dependency.
+    if (type === "gmail_draft" && byType.has("drive_document")) {
+      const drive = results.find((result) => result.type === "drive_document");
+      if (didNotCreate(drive)) {
+        results.push({
+          id: suggestion.id,
+          type,
+          state: "blocked",
+          error: "Google Doc creation did not complete.",
+        });
+        continue;
+      }
+    }
+
+    try {
+      results.push(await handlers[type](suggestion));
+    } catch (error) {
+      results.push({
+        id: suggestion.id,
+        type,
+        state: "failed",
+        error: error instanceof Error ? error.message : "Action failed",
+      });
+    }
   }
-  if (types.has("gmail_draft")) gmail = await handlers.pushGmailDraft();
 
   return {
-    gmail,
-    taskCreated,
-    proposedOnly: (["calendar_event", "drive_document"] as const)
-      .filter((type) => types.has(type)),
+    actions: results,
+    complete: results.every((result) => result.state === "created"),
   };
 }

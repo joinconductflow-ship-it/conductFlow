@@ -32,9 +32,11 @@ const doc: DriveFile = {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("createDriveClient", () => {
-  it("exposes only read methods", () => {
+  it("exposes list, read, and create methods", () => {
     const client = createDriveClient(TOKEN);
-    expect(Object.keys(client).sort()).toEqual(["listFiles", "readFile"]);
+    expect(Object.keys(client).sort()).toEqual([
+      "createGoogleDoc", "findCreatedDocument", "listFiles", "readFile",
+    ]);
   });
 
   it("lists files newest first and sends the bearer token", async () => {
@@ -91,5 +93,50 @@ describe("createDriveClient", () => {
   it("names the file when a read fails", async () => {
     fakeFetch({ ok: false, status: 404 });
     await expect(createDriveClient(TOKEN).readFile(doc)).rejects.toThrow(/Follow-up template.*404/);
+  });
+
+  it("reuses an existing created document instead of uploading a copy", async () => {
+    const uploads: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: { method?: string }) => {
+      if ((init?.method ?? "GET") === "GET") {
+        return {
+          ok: true, status: 200, text: async () => "",
+          json: async () => ({ files: [{ id: "doc-1", name: "Recap", mimeType: "application/vnd.google-apps.document", webViewLink: "https://docs.google.com/document/d/doc-1/edit" }] }),
+        };
+      }
+      uploads.push(String(url));
+      return { ok: true, status: 200, text: async () => "", json: async () => ({}) };
+    }));
+
+    const result = await createDriveClient(TOKEN).createGoogleDoc({
+      actionId: "action-1", title: "Recap", body: "Body",
+    });
+    expect(result.id).toBe("doc-1");
+    expect(result.url).toBe("https://docs.google.com/document/d/doc-1/edit");
+    expect(uploads).toHaveLength(0);
+  });
+
+  it("uploads a private Google Doc at the Drive root when nothing exists yet", async () => {
+    const uploads: { url: string; body: string }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
+      if ((init?.method ?? "GET") === "GET") {
+        return { ok: true, status: 200, text: async () => "", json: async () => ({ files: [] }) };
+      }
+      uploads.push({ url: String(url), body: String(init!.body) });
+      return {
+        ok: true, status: 200, text: async () => "",
+        json: async () => ({ id: "doc-new", name: "Recap", mimeType: "application/vnd.google-apps.document", webViewLink: "https://docs.google.com/document/d/doc-new/edit" }),
+      };
+    }));
+
+    const result = await createDriveClient(TOKEN).createGoogleDoc({
+      actionId: "action-2", title: "Recap", body: "First draft body",
+    });
+    expect(result.id).toBe("doc-new");
+    expect(uploads).toHaveLength(1);
+    expect(uploads[0].url).toContain("uploadType=multipart");
+    expect(uploads[0].body).toContain("application/vnd.google-apps.document");
+    expect(uploads[0].body).toContain("conductflowActionId");
+    expect(uploads[0].body).toContain("First draft body");
   });
 });

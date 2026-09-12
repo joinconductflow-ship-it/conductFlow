@@ -53,6 +53,14 @@ function fakeDb(tables: Record<string, Row[]>): SupabaseClient {
                 return matched;
               };
               return {
+                eq(column2: string, value2: unknown) {
+                  return {
+                    then(onFulfilled: (v: { error: null }) => unknown, onRejected?: (e: unknown) => unknown) {
+                      apply((r) => r[column2] === value2);
+                      return Promise.resolve({ error: null }).then(onFulfilled, onRejected);
+                    },
+                  };
+                },
                 is(column2: string, value2: unknown) {
                   return {
                     select() {
@@ -307,6 +315,23 @@ describe("pushDraftToGmail", () => {
     expect(result.outcome).toBe("already_pushed");
     expect(gmail.created).toHaveLength(0);
     expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("does not steal another execution's pending claim", async () => {
+    const tables = seed({ draft: { provider_draft_id: "__pending__" } });
+    const gmail = new FakeGmailClient({ exists: false });
+
+    const result = await pushDraftToGmail(
+      fakeDb(tables), { draftId: DRAFT, orgId: ORG, userId: USER, from: "owner@demo.test" }, gmail);
+
+    expect(result).toEqual({
+      outcome: "already_pushed",
+      providerDraftId: null,
+      providerMessageId: null,
+    });
+    expect(gmail.fetched).toHaveLength(0);
+    expect(gmail.created).toHaveLength(0);
+    expect(tables.deliverable_draft[0].provider_draft_id).toBe("__pending__");
   });
 
   it("replaces a recorded draft that has since been deleted in Gmail", async () => {

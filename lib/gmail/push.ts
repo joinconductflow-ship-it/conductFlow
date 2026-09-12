@@ -83,6 +83,9 @@ export async function pushDraftToGmail(
   }
 
   let recreating = false;
+  if (draft.provider_draft_id === CLAIM_SENTINEL) {
+    return { outcome: "already_pushed", providerDraftId: null, providerMessageId: null };
+  }
   if (draft.provider_draft_id) {
     const { exists } = await client.getDraft(draft.provider_draft_id);
     if (exists) {
@@ -112,20 +115,22 @@ export async function pushDraftToGmail(
   }
   const releaseClaim = async () => {
     const { error: releaseError } = await db.from("deliverable_draft")
-      .update({ provider_draft_id: null }).eq("id", draft.id);
+      .update({ provider_draft_id: null })
+      .eq("id", draft.id)
+      .eq("provider_draft_id", CLAIM_SENTINEL);
     if (releaseError) throw releaseError;
   };
 
-  const recipient = await recipientFor(db, draft.commitment_id, args.orgId);
-  const raw = buildRawMessage({
-    to: recipient,
-    from: args.from,
-    subject: draft.subject ?? "",
-    body: draft.body,
-  });
-
+  let raw: string;
   let created: { draftId: string; messageId: string };
   try {
+    const recipient = await recipientFor(db, draft.commitment_id, args.orgId);
+    raw = buildRawMessage({
+      to: recipient,
+      from: args.from,
+      subject: draft.subject ?? "",
+      body: draft.body,
+    });
     created = await client.createDraft(raw);
   } catch (e) {
     await releaseClaim();

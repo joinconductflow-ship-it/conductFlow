@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { openRefreshToken, sealRefreshToken, type SealedToken } from "./vault";
 import { logAudit } from "@/lib/audit/log";
+import type { GoogleApiError } from "./api-error";
 
 export const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 
@@ -33,6 +34,41 @@ export function clearTokenCache() { cache.clear(); }
  * other org an extra refresh round trip.
  */
 export function invalidateCachedToken(dataSourceId: string) { cache.delete(dataSourceId); }
+
+/**
+ * Records a downstream Calendar/Drive auth rejection without treating every expired access
+ * token as a permanently broken connection. A 401 evicts only the cached token; an
+ * insufficient-scope 403 needs new consent, so settings should show an error immediately.
+ */
+export async function recordGoogleApiAuthFailure(
+  db: SupabaseClient,
+  orgId: string,
+  error: GoogleApiError,
+): Promise<void> {
+  if (!error.reconnectRequired) return;
+
+  const { data: source, error: lookupError } = await db.from("connected_data_source")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("provider", "google")
+    .eq("state", "active")
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (!source?.id) return;
+
+  invalidateCachedToken(source.id as string);
+  if (error.status !== 403) return;
+
+  const { error: updateError } = await db.from("connected_data_source")
+    .update({
+      state: "error",
+      last_error: error.message.slice(0, 500),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", source.id as string);
+  if (updateError) throw updateError;
+}
 
 export function aadFor(orgId: string, provider: string, externalAccountId: string): string {
   return `${orgId}:${provider}:${externalAccountId}`;
