@@ -16,8 +16,7 @@ import Leads from "@/app/(app)/leads/page";
 import Risk from "@/app/(app)/risk/page";
 import Queue from "@/app/(app)/queue/page";
 import Tasks from "@/app/(app)/tasks/page";
-import Dashboard from "@/app/(app)/dashboard/page";
-import Operations from "@/app/(app)/operations/page";
+import ROI from "@/app/(app)/roi/page";
 import Ingest from "@/app/(app)/ingest/page";
 import Scope from "@/app/(app)/scope/page";
 import Reports from "@/app/(app)/reports/page";
@@ -125,8 +124,7 @@ const pages = [
   { route: "/risk", render: Risk, tables: ["payment_risk_flag", "client_contact", "client_message_draft"] },
   { route: "/queue", render: Queue, tables: ["commitment", "transcript", "escalation"] },
   { route: "/tasks", render: Tasks, tables: ["task", "reminder", "commitment", "client_contact"] },
-  { route: "/dashboard", render: Dashboard, tables: ["commitment"] },
-  { route: "/operations", render: Operations, tables: ["commitment", "task", "client_contact"] },
+  { route: "/roi", render: ROI, tables: ["commitment", "task", "client_contact"] },
   { route: "/ingest", render: Ingest, tables: ["client_contact"] },
   { route: "/scope", render: Scope, tables: ["client_contact", "scope_of_work", "membership:role"] },
   { route: "/reports", render: Reports, tables: ["time_entry", "invoice", "client_contact", "billing_rate"] },
@@ -138,7 +136,14 @@ const pages = [
 it("covers every page and layout under app/(app)", () => {
   const files = readdirSync(resolve("app/(app)"), { recursive: true })
     .map(String).filter((file) => /(?:^|\/)(page|layout)\.tsx$/.test(file)).sort();
-  const covered = ["layout.tsx", "onboarding/page.tsx", ...pages.map(({ route }) => `${route.slice(1)}/page.tsx`)].sort();
+  const covered = [
+    "layout.tsx", "onboarding/page.tsx",
+    // Nested layout wraps a client-only CopilotKitProvider; rendering the page here would
+    // need that provider mocked for no reliability benefit, so it's excluded rather than
+    // faked into the fault-injection matrix below.
+    "copilot/layout.tsx", "copilot/page.tsx",
+    ...pages.map(({ route }) => `${route.slice(1)}/page.tsx`),
+  ].sort();
   expect(files).toEqual(covered);
 });
 

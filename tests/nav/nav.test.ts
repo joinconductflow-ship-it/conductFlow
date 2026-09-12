@@ -4,15 +4,15 @@ import { navItems } from "@/components/nav/AppNav";
 describe("navItems", () => {
   it("offers the destinations in a fixed order", () => {
     expect(navItems("/queue").map((i) => i.href))
-      .toEqual(["/queue", "/tasks", "/dashboard", "/operations", "/settings",
+      .toEqual(["/queue", "/tasks", "/roi", "/settings",
         "/retainers", "/documents", "/scheduling", "/billing", "/risk", "/scope", "/reviews", "/leads", "/reports"]);
     expect(navItems("/queue").map((i) => i.label))
-      .toEqual(["Queue", "Tasks", "Dashboard", "Operations", "Settings",
+      .toEqual(["Queue", "Tasks", "ROI", "Settings",
         "Retainers", "Documents", "Scheduling", "Billing", "Payment Risk", "Scope of work", "Reviews & referrals", "Leads", "Reports"]);
   });
 
   it("marks exactly one destination current", () => {
-    for (const path of ["/queue", "/tasks", "/dashboard", "/operations", "/settings",
+    for (const path of ["/queue", "/tasks", "/roi", "/settings",
       "/retainers", "/documents", "/scheduling", "/billing", "/risk", "/scope", "/reviews", "/leads", "/reports"]) {
       const current = navItems(path).filter((i) => i.isCurrent);
       expect(current).toHaveLength(1);

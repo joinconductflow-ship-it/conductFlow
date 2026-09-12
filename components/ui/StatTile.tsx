@@ -1,5 +1,8 @@
-import type { ReactNode } from "react";
+"use client";
+
+import type { CSSProperties, ReactNode } from "react";
 import { StatusPill } from "./primitives";
+import { AnimatedNumber } from "./AnimatedNumber";
 
 export type StatTone = "neutral" | "ok" | "warn" | "danger" | "accent";
 
@@ -24,7 +27,7 @@ const FG: Record<StatTone, string> = {
  * two slots — a row of equal tiles keeps a clean baseline grid, and the type does the
  * ranking, which is cheaper than the layout doing it.
  */
-export function StatTile({ label, value, tone = "neutral", status, hint, hero = false }: {
+export function StatTile({ label, value, tone = "neutral", status, hint, hero = false, index = 0 }: {
   label: string;
   value: string;
   tone?: StatTone;
@@ -33,15 +36,31 @@ export function StatTile({ label, value, tone = "neutral", status, hint, hero = 
   hint?: ReactNode;
   /** Exactly one per view. */
   hero?: boolean;
+  /** Position in a row of tiles, so entrance staggers left to right instead of popping at once. */
+  index?: number;
 }) {
+  // Values are always caller-formatted strings ("84%", "12"); animate only the numeric
+  // portion so the count-up still lands on the exact string the caller composed.
+  const match = /^(\D*)(-?\d+(?:\.\d+)?)(.*)$/.exec(value);
+  const GLOW: Record<StatTone, string | undefined> = {
+    neutral: undefined,
+    accent: "var(--accent-quiet)",
+    ok: "var(--ok-quiet)",
+    warn: "var(--warn-quiet)",
+    danger: "var(--danger-quiet)",
+  };
+
   return (
-    <div style={{
-      background: "var(--surface)",
-      border: "1px solid var(--border)",
-      borderRadius: "var(--radius)",
-      padding: "var(--space-4)",
-      display: "flex", flexDirection: "column",
-    }}>
+    <div className={`cf-fade-up ${hero ? "cf-card-interactive cf-hero-glow" : "cf-card-interactive"}`}
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius)",
+        padding: "var(--space-4)",
+        display: "flex", flexDirection: "column",
+        animationDelay: `${index * 60}ms`,
+        ...(hero ? { "--cf-glow-color": GLOW[tone] } as CSSProperties : {}),
+      }}>
       <div style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>{label}</div>
       <div style={{
         fontSize: hero ? 40 : "var(--text-xl)",
@@ -51,7 +70,9 @@ export function StatTile({ label, value, tone = "neutral", status, hint, hero = 
         color: FG[tone],
         marginTop: hero ? "var(--space-2)" : "var(--space-1)",
       }}>
-        {value}
+        {match
+          ? <AnimatedNumber prefix={match[1]} value={Number(match[2])} suffix={match[3]} />
+          : value}
       </div>
       {status && (
         <div style={{ marginTop: "var(--space-3)" }}>

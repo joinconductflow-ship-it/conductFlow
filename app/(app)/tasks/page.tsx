@@ -6,7 +6,7 @@ import {
 } from "@/lib/db/queries";
 import { detectRecurring } from "@/lib/ops/recurring";
 import { RecurringSuggestions } from "@/components/tasks/RecurringSuggestions";
-import { TaskBoard } from "@/components/tasks/TaskBoard";
+import { TaskViews } from "@/components/tasks/TaskViews";
 import { ReminderStrip } from "@/components/tasks/ReminderStrip";
 import { PageHeader, EmptyState, buttonStyle, pageStyle } from "@/components/ui/primitives";
 
@@ -78,7 +78,7 @@ export default async function TasksPage() {
             style={buttonStyle("primary")}>Go to the queue</Link>}
         />
       ) : (
-        <TaskBoard items={tasks} nowIso={now.toISOString()} />
+        <TaskViews items={tasks} nowIso={now.toISOString()} />
       )}
 
       {recurringUnavailable ? <Unavailable section="Recurring suggestions are" /> : <RecurringSuggestions patterns={suggestions} />}

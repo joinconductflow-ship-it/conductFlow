@@ -92,12 +92,15 @@ export function PageHeader({ title, lede, actions, meta }: {
   );
 }
 
-export function Card({ children, tone = "neutral", padded = true, style }: {
-  children: ReactNode; tone?: Tone; padded?: boolean; style?: CSSProperties;
+export function Card({ children, tone = "neutral", padded = true, interactive = false, style }: {
+  children: ReactNode; tone?: Tone; padded?: boolean;
+  /** Lifts and brightens on hover — for a card that leads somewhere or holds live data. */
+  interactive?: boolean;
+  style?: CSSProperties;
 }) {
   const t = TONE[tone];
   return (
-    <section style={{
+    <section className={interactive ? "cf-card-interactive" : undefined} style={{
       background: tone === "neutral" ? "var(--surface)" : t.bg,
       border: `1px solid ${tone === "neutral" ? "var(--border)" : t.line}`,
       borderRadius: "var(--radius)",

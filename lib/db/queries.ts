@@ -156,7 +156,7 @@ export async function listOpenReminders(orgId: string): Promise<OpenReminder[]> 
 }
 
 /** Everything the operations map needs, in three reads. */
-export async function loadOperationsData(orgId: string, route = "/operations"): Promise<{
+export async function loadOperationsData(orgId: string, route = "/roi"): Promise<{
   commitments: Commitment[]; tasks: Task[]; clientNames: Record<string, string>;
   unavailable: { commitments: boolean; tasks: boolean; clients: boolean };
 }> {

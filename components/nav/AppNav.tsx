@@ -13,8 +13,7 @@ export interface NavItem {
 const DESTINATIONS: { href: string; label: string }[] = [
   { href: "/queue", label: "Queue" },
   { href: "/tasks", label: "Tasks" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/operations", label: "Operations" },
+  { href: "/roi", label: "ROI" },
   { href: "/settings", label: "Settings" },
   { href: "/retainers", label: "Retainers" },
   { href: "/documents", label: "Documents" },

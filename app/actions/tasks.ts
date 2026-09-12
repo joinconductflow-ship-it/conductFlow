@@ -16,7 +16,7 @@ export async function setTaskStatus(taskId: string, next: string) {
   const { db, userId } = await session();
   await setTaskStatusFor(db, { taskId, next, userId });
   revalidatePath("/tasks");
-  revalidatePath("/dashboard");
+  revalidatePath("/roi");
 }
 
 export async function dismissReminder(reminderId: string) {
