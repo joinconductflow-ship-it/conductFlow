@@ -641,6 +641,124 @@ button:hover:not(:disabled),
 .cf-row:hover .cf-row-go { opacity: 1; transform: translateX(2px); }
 
 /* Present to the keyboard, out of the way of everyone else, until it is focused. */
+.queue-sync-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.queue-sync-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.queue-sync-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.queue-sync-status {
+  margin: 0;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+}
+.queue-sync-caption {
+  color: var(--faint);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.queue-filter-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+.queue-filter-empty {
+  margin: 0;
+  padding: var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  text-align: center;
+}
+.queue-commitment-groups {
+  display: grid;
+  gap: var(--space-5);
+}
+.queue-group-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.queue-group-heading h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.queue-group-heading .mono {
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+.queue-decision-row > span:first-child {
+  flex: 1 1 auto;
+}
+.queue-decision-row > span:last-child {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 680px) {
+  .queue-sync-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .queue-sync-caption {
+    white-space: normal;
+  }
+  .queue-decision-row {
+    flex-direction: column;
+  }
+  .queue-decision-row > span:last-child {
+    width: 100%;
+  }
+  .queue-decision-row > span:last-child .cf-btn,
+  .queue-decision-row > span:last-child button {
+    flex: 1 1 auto;
+  }
+  .queue-commitment-row {
+    align-items: flex-start !important;
+    flex-direction: column;
+  }
+  .queue-commitment-main {
+    width: 100%;
+  }
+  .queue-commitment-main > span:first-child {
+    white-space: normal !important;
+  }
+  .queue-commitment-status {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
 .skip-link {
   position: absolute;
   left: var(--gutter);

@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { scanGmailNow } from "@/app/actions/gmail-watch";
-import { Card, buttonStyle } from "@/components/ui/primitives";
+import { buttonStyle } from "@/components/ui/primitives";
 
 function summarize(result: Awaited<ReturnType<typeof scanGmailNow>>): string {
   if (result.connectionsScanned === 0) {
@@ -46,15 +46,15 @@ export function GmailScanButton() {
   }
 
   return (
-    <Card style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "center",
-      gap: "var(--space-4)", flexWrap: "wrap" }}>
-      <button type="button" disabled={isPending} onClick={scan} style={buttonStyle("secondary", isPending)}>
-        {isPending ? "Scanning Gmail…" : "Scan Gmail for new commitments"}
+    <div className="queue-sync-control">
+      <button type="button" disabled={isPending} aria-busy={isPending} onClick={scan}
+        style={buttonStyle("secondary", isPending)}>
+        {isPending ? "Syncing Gmail…" : "Gmail · Sync now"}
       </button>
-      <p style={{ color: error ? "var(--danger-text)" : "var(--muted)", fontSize: "var(--text-sm)",
-        margin: 0 }}>
-        {error ?? note ?? "Reads mail from your known clients since the last scan. Runs automatically once a day too."}
+      <p role={error ? "alert" : "status"} className="queue-sync-status"
+        style={{ color: error ? "var(--danger-text)" : "var(--muted)" }}>
+        {error ?? note ?? "Known-client mail"}
       </p>
-    </Card>
+    </div>
   );
 }

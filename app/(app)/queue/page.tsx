@@ -16,7 +16,7 @@ export default async function QueuePage() {
   const orgId = await getCurrentOrgId("/queue");
   if (!orgId) return (
     <main style={pageStyle}>
-      <PageHeader title="Commitment queue" />
+    <PageHeader title="Queue" />
       <EmptyState
         title="Sign in to see your commitments"
         body="ConductFlow keeps every promise your team made in one reviewable list."
@@ -50,27 +50,41 @@ export default async function QueuePage() {
     if (mappingError) throw mappingError;
     return !!data?.length;
   });
+  const nowIso = new Date().toISOString();
+  const overdueCount = items.filter((c) => c.status !== "done" && c.deadline
+    && Number.isFinite(Date.parse(c.deadline)) && Date.parse(c.deadline) < Date.now()).length;
   const needsReview = items.filter((c) => c.status === "proposed").length;
+  const needsDecision = escalations.unavailable ? null : (escalations.data ?? []).length;
+  const queueMeta = [
+    `${needsReview} awaiting review`,
+    `${overdueCount} overdue`,
+    ...(needsDecision === null ? [] : [`${needsDecision} need a decision`]),
+  ].join(" · ");
 
   return (
     <main style={pageStyle}>
       {/* The count is the one number an owner checks on arrival, so it sits in the header
           rather than floating above the list. */}
       <PageHeader
-        title="Commitment queue"
-        lede="Every promise the assistant found, waiting on you. It drafts and proposes; nothing reaches a client until you approve it."
-        meta={items.length > 0
-          ? `${needsReview} awaiting review · ${items.length} total`
-          : undefined}
+        title="Queue"
+        lede="ConductFlow collects the commitments from your conversations here so you can review what needs attention and track what happens next."
+        meta={queueMeta}
       />
 
-      <GmailScanButton />
-      {slackReady.data && <SlackScanButton />}
+      <div className="queue-sync-row" aria-label="Conversation sync">
+        <div className="queue-sync-controls">
+          <GmailScanButton />
+          {slackReady.data && <SlackScanButton />}
+        </div>
+        <span className="mono queue-sync-caption">Pull new conversations into the queue</span>
+      </div>
 
       {/* Escalations first: a complaint outranks the queue it came from. */}
       {escalations.unavailable ? <Unavailable section="Escalations are" /> : <EscalationStrip items={escalations.data ?? []} />}
       {failed.unavailable ? <Unavailable section="Extraction alerts are" /> : <NeedsAttention items={failed.data ?? []} />}
-      {commitments.unavailable ? <Unavailable section="Commitments are" /> : <CommitmentList items={items} />}
+      {commitments.unavailable
+        ? <Unavailable section="Commitments are" />
+        : <CommitmentList items={items} nowIso={nowIso} />}
     </main>
   );
 }
