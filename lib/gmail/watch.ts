@@ -105,8 +105,13 @@ async function scanOneConnection(
   })))
     .filter((m): m is NonNullable<typeof m> => m !== null)
     .filter((m) => m.receivedAtMs > lastScanned.getTime())
-    .sort((a, b) => a.receivedAtMs - b.receivedAtMs)
-    .slice(0, maxMessages);
+    // Newest first so a cap below the candidate count keeps the most recent mail, not the
+    // oldest — dropping today's message in favor of a three-day-old one would be backwards.
+    .sort((a, b) => b.receivedAtMs - a.receivedAtMs)
+    .slice(0, maxMessages)
+    // Re-ascending once the newest are kept, so a client's own multi-message thread is
+    // ingested in the order it was actually said.
+    .sort((a, b) => a.receivedAtMs - b.receivedAtMs);
 
   result.messagesConsidered += parsed.length;
 
