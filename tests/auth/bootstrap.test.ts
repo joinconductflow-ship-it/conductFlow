@@ -88,7 +88,11 @@ describe("bootstrapUser consent enforcement", () => {
       limit: vi.fn().mockReturnThis(), maybeSingle: lookup,
       insert: vi.fn().mockResolvedValue({ error: null }),
     };
-    const appUser = { upsert: vi.fn().mockResolvedValue({ error: null }) };
+    const appUser = {
+      upsert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockResolvedValue({ error: null }),
+    };
     const organization = {
       insert: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({ data: { id: "org-1" }, error: null }),
@@ -117,11 +121,12 @@ describe("bootstrapUser consent enforcement", () => {
     try {
       const started = Date.now();
       await bootstrapUser(mock.db, { id: "new-user", email: "new@example.test", termsAccepted: true });
-      const record = mock.appUser.upsert.mock.calls[0][0];
+      expect(mock.appUser.upsert).toHaveBeenCalledWith(
+        { id: "new-user", email: "new@example.test" }, { onConflict: "id" });
+      const record = mock.appUser.update.mock.calls[0][0];
       expect(Date.parse(record.terms_accepted_at)).toBeGreaterThanOrEqual(started);
       expect(Date.parse(record.terms_accepted_at)).toBeLessThanOrEqual(Date.now());
-      expect(mock.appUser.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: "new-user" }),
-        { onConflict: "id", ignoreDuplicates: true });
+      expect(mock.appUser.is).toHaveBeenCalledWith("terms_accepted_at", null);
       mock.lookup.mockResolvedValue({ data: { org_id: "org-1" }, error: null });
       expect(await bootstrapUser(mock.db, { id: "new-user", email: "new@example.test" }))
         .toEqual({ orgId: "org-1", created: false });
