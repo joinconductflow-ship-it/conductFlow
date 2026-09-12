@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractionSchema, draftSchema } from "@/lib/agent/schema";
+import { actionPlanSchema, extractionSchema, draftSchema } from "@/lib/agent/schema";
 
 describe("extractionSchema", () => {
   it("accepts a well-formed commitment", () => {
@@ -66,5 +66,27 @@ describe("draftSchema", () => {
     expect(() => draftSchema.parse({ subject: "x".repeat(201), body: "there" })).toThrow();
     expect(draftSchema.parse({ subject: "x".repeat(200), body: "there" }).subject)
       .toHaveLength(200);
+  });
+});
+
+describe("actionPlanSchema", () => {
+  const gmailDraft = {
+    type: "gmail_draft", confidence: "high", rationale: "The client expects a confirmation.",
+    required_data: ["recipient", "subject", "body"], missing_data: ["recipient"],
+  };
+
+  it("accepts zero actions and multiple distinct, supported actions", () => {
+    expect(actionPlanSchema.parse({ actions: [] }).actions).toEqual([]);
+    expect(actionPlanSchema.parse({ actions: [gmailDraft, {
+      type: "internal_task", confidence: "medium", rationale: "The work needs tracking.",
+      required_data: ["task_title", "owner"], missing_data: [],
+    }] }).actions).toHaveLength(2);
+  });
+
+  it("refuses duplicate action types and missing data outside the requirements", () => {
+    expect(() => actionPlanSchema.parse({ actions: [gmailDraft, gmailDraft] })).toThrow();
+    expect(() => actionPlanSchema.parse({ actions: [{
+      ...gmailDraft, missing_data: ["start_time"],
+    }] })).toThrow();
   });
 });

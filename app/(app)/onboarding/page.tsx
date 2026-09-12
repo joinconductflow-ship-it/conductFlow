@@ -52,15 +52,13 @@ export default async function Onboarding({ searchParams }:
         for a password.
       </p>
 
-      <form action="/auth/signin" method="get">
-        <button type="submit" style={{
+      <a href="/auth/signin" className="cf-btn" style={{
           ...buttonStyle("secondary"),
           background: "#fff", color: "#111", borderColor: "#fff", fontWeight: 600,
           width: "100%", height: 36, marginTop: "var(--space-5)",
         }}>
           Continue with Google
-        </button>
-      </form>
+      </a>
 
       <OrRule />
 

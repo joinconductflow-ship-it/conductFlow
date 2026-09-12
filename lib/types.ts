@@ -3,6 +3,7 @@ import type { TaskStatus } from "@/lib/tasks/transitions";
 export type { TaskStatus };
 
 export type Confidence = "high" | "medium" | "low";
+export type SuggestedActionType = "gmail_draft" | "calendar_event" | "drive_document" | "internal_task";
 export type CommitmentStatus = "proposed" | "approved" | "tasked" | "done" | "rejected";
 export type Role = "owner" | "member";
 
@@ -29,6 +30,18 @@ export interface Commitment {
 export interface DeliverableDraft {
   id: string; org_id: string; commitment_id: string; kind: "email" | "recap";
   subject: string | null; body: string; created_at: string;
+}
+
+export interface CommitmentActionSuggestion {
+  id: string;
+  org_id: string;
+  commitment_id: string;
+  action_type: SuggestedActionType;
+  confidence: Confidence;
+  rationale: string;
+  required_data: string[];
+  missing_data: string[];
+  created_at: string;
 }
 export interface ApprovalEvent {
   id: string; org_id: string; subject_type: string; subject_id: string;

@@ -17,38 +17,52 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const store = await cookies();
   const pending: { name: string; value: string; options: Record<string, unknown> }[] = [];
+  const origin = await siteOrigin();
 
-  const db = createServerClient(
-    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-    {
-      cookies: {
-        getAll: () => store.getAll(),
-        setAll: (written) => {
-          pending.push(...(written as typeof pending));
+  let db: ReturnType<typeof createServerClient>;
+  try {
+    db = createServerClient(
+      requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+      requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+      {
+        cookies: {
+          getAll: () => store.getAll(),
+          setAll: (written) => {
+            pending.push(...(written as typeof pending));
+          },
         },
       },
-    }
-  );
+    );
+  } catch (cause) {
+    console.error("Supabase sign-in initialization failed", cause);
+    return NextResponse.redirect(new URL("/onboarding?error=auth_unavailable", origin));
+  }
 
-  const origin = await siteOrigin();
-  const { data, error } = await db.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${origin}/auth/callback`,
-      // Identity only. API access is asked for later, one capability at a time.
-      scopes: SIGN_IN_SCOPES,
-    },
-  });
+  let data: { url: string | null } | null;
+  let error: Error | null;
+  try {
+    ({ data, error } = await db.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${origin}/auth/callback`,
+        // Identity only. API access is asked for later, one capability at a time.
+        scopes: SIGN_IN_SCOPES,
+      },
+    }));
+  } catch (cause) {
+    console.error("Supabase OAuth initialization failed", cause);
+    return NextResponse.redirect(new URL("/onboarding?error=auth_start_failed", origin));
+  }
 
-  if (error || !data.url) {
+  const authorizeUrl = data?.url;
+  if (error || !authorizeUrl) {
     const reason = error?.message ?? "no_authorize_url";
     return NextResponse.redirect(
       new URL(`/onboarding?error=${encodeURIComponent(reason)}`, origin)
     );
   }
 
-  const response = NextResponse.redirect(data.url);
+  const response = NextResponse.redirect(authorizeUrl);
   for (const { name, value, options } of pending) {
     response.cookies.set(name, value, options);
   }

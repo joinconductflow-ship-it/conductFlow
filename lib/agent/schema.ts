@@ -35,6 +35,59 @@ export const extractionSchema = z.object({
   commitments: z.array(commitmentSchema),
 });
 
+/** Actions are suggestions only. Nothing in this schema authorizes an execution. */
+export const actionTypeSchema = z.enum([
+  "gmail_draft",
+  "calendar_event",
+  "drive_document",
+  "internal_task",
+]);
+
+/** Stable names let a later review UI show what is still needed. */
+export const actionDataRequirementSchema = z.enum([
+  "recipient",
+  "subject",
+  "body",
+  "event_title",
+  "start_time",
+  "end_time",
+  "attendees",
+  "document_title",
+  "document_content",
+  "task_title",
+  "owner",
+  "due_date",
+]);
+
+const actionDataList = z.array(actionDataRequirementSchema).max(12);
+
+export const actionSuggestionSchema = z.object({
+  type: actionTypeSchema,
+  confidence: z.enum(["high", "medium", "low"]),
+  rationale: z.string().trim().min(1).max(280),
+  required_data: actionDataList.min(1),
+  missing_data: actionDataList,
+}).superRefine((action, context) => {
+  const required = new Set(action.required_data);
+  if (required.size !== action.required_data.length) {
+    context.addIssue({ code: "custom", path: ["required_data"], message: "required_data must not repeat a field." });
+  }
+  if (new Set(action.missing_data).size !== action.missing_data.length) {
+    context.addIssue({ code: "custom", path: ["missing_data"], message: "missing_data must not repeat a field." });
+  }
+  if (action.missing_data.some((field) => !required.has(field))) {
+    context.addIssue({ code: "custom", path: ["missing_data"], message: "missing_data must be a subset of required_data." });
+  }
+});
+
+export const actionPlanSchema = z.object({
+  actions: z.array(actionSuggestionSchema).max(4),
+}).superRefine((plan, context) => {
+  if (new Set(plan.actions.map((action) => action.type)).size !== plan.actions.length) {
+    context.addIssue({ code: "custom", path: ["actions"], message: "Suggest each action type at most once." });
+  }
+});
+
 export const draftSchema = z.object({
   // A newline here isn't just untidy — `buildRawMessage` (lib/gmail/mime.ts) refuses any
   // header value containing one, so an ungated multiline subject reaches the database, gets
@@ -99,4 +152,5 @@ export type MeetingAssistantSuggestions = z.infer<typeof meetingAssistantSchema>
 export type ExtractedCommitment = z.infer<typeof commitmentSchema> & {
   span_verified: boolean;
 };
+export type SuggestedAction = z.infer<typeof actionSuggestionSchema>;
 export type GeneratedDraft = z.infer<typeof draftSchema>;

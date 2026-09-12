@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  EXTRACTION_SYSTEM_PROMPT, buildExtractionPrompt, buildDraftPrompt,
+  ACTION_PLAN_SYSTEM_PROMPT, EXTRACTION_SYSTEM_PROMPT,
+  buildActionPlanPrompt, buildExtractionPrompt, buildDraftPrompt,
 } from "@/lib/agent/prompts";
 
 describe("EXTRACTION_SYSTEM_PROMPT", () => {
@@ -42,5 +43,21 @@ describe("buildDraftPrompt", () => {
     });
     expect(p).toContain("Send the deck");
     expect(p).toContain("Northwind Ltd");
+  });
+});
+
+describe("action planning prompt", () => {
+  it("keeps planning separate from extraction and prohibits defaulting to email", () => {
+    expect(ACTION_PLAN_SYSTEM_PROMPT).toMatch(/do not default to gmail_draft/i);
+    expect(ACTION_PLAN_SYSTEM_PROMPT).toMatch(/zero or more actions/i);
+  });
+
+  it("wraps commitment details as untrusted data", () => {
+    const prompt = buildActionPlanPrompt({
+      commitmentText: "Schedule a follow-up", owner: "Alex", deadline: null,
+      commitmentType: "call", sourceSpan: "I'll get something on the calendar.",
+    });
+    expect(prompt).toContain("<<UNTRUSTED_DATA>>");
+    expect(prompt).toContain("Schedule a follow-up");
   });
 });

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 vi.mock("@/lib/agent/blueprint-store", () => ({ contractFor: vi.fn() }));
 vi.mock("@/lib/agent/extract", () => ({ extractCommitments: vi.fn() }));
+vi.mock("@/lib/agent/action-plan", () => ({ planCommitmentActions: vi.fn() }));
 vi.mock("@/lib/agent/draft", () => ({ generateFollowUpDraft: vi.fn() }));
 vi.mock("@/lib/google/draft-context", () => ({ contextForOrg: vi.fn() }));
 vi.mock("@/lib/db/service", () => ({ getServiceClient: () => ({}) }));
@@ -13,6 +14,7 @@ import { regenerateDraftFor } from "@/lib/drafts/regenerate";
 import { blueprintToContract, DEFAULT_BLUEPRINT } from "@/lib/agent/blueprint";
 import { contractFor } from "@/lib/agent/blueprint-store";
 import { extractCommitments } from "@/lib/agent/extract";
+import { planCommitmentActions } from "@/lib/agent/action-plan";
 import { generateFollowUpDraft } from "@/lib/agent/draft";
 import { contextForOrg } from "@/lib/google/draft-context";
 
@@ -47,6 +49,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(contractFor).mockResolvedValue(blueprintToContract(DEFAULT_BLUEPRINT));
   vi.mocked(extractCommitments).mockResolvedValue({ commitments: [commitment], dropped: 0, flagged: [] });
+  vi.mocked(planCommitmentActions).mockResolvedValue({ actions: [{
+    type: "gmail_draft", confidence: "high", rationale: "The client needs the promised deck confirmed.",
+    required_data: ["recipient", "subject", "body"], missing_data: ["recipient"],
+  }] });
   vi.mocked(generateFollowUpDraft).mockResolvedValue({ subject: "Deck", body: "As discussed." });
   vi.mocked(contextForOrg).mockResolvedValue({ templateText: null, meetingContext: null, sources: [] });
 });

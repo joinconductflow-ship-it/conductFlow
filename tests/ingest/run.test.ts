@@ -24,7 +24,7 @@ function mockReturning(payload: unknown) {
   });
 }
 
-// One mock serves both calls: extraction reads .commitments, drafting reads .subject/.body.
+// One mock serves extraction, planning, and drafting. Each schema keeps only its own fields.
 const bothCalls = mockReturning({
   commitments: [{
     text: "Send Mia a revised practice set", owner: "Tutor",
@@ -33,6 +33,12 @@ const bothCalls = mockReturning({
   }],
   subject: "Mia's practice set",
   body: "Confirming the revised practice set will reach you by Friday.",
+  actions: [
+    { type: "gmail_draft", confidence: "high", rationale: "The commitment is to send work to the client.",
+      required_data: ["recipient", "subject", "body"], missing_data: ["recipient"] },
+    { type: "internal_task", confidence: "high", rationale: "The promised work needs tracking until complete.",
+      required_data: ["task_title", "owner", "due_date"], missing_data: [] },
+  ],
 });
 
 const args = {
@@ -60,10 +66,16 @@ function pairingMock() {
     doGenerate: async (options) => {
       const promptText = extractPromptText(options.prompt);
 
-      const match = promptText.match(/Commitment: (.+)/);
-      const payload = match
-        ? { subject: match[1].trim(), body: `Confirming: ${match[1].trim()}` }
-        : {
+      const draftMatch = promptText.match(/Commitment: (.+)/);
+      const payload = draftMatch
+        ? { subject: draftMatch[1].trim(), body: `Confirming: ${draftMatch[1].trim()}` }
+        : promptText.includes("Commitment details:")
+          ? { actions: [{
+              type: "gmail_draft", confidence: "high",
+              rationale: "The commitment needs a client follow-up.",
+              required_data: ["recipient", "subject", "body"], missing_data: ["recipient"],
+            }] }
+          : {
             commitments: [
               { text: "Send the revised deck", owner: "Tutor", deadline: "2026-08-14",
                 type: "deliverable", confidence: "high",
@@ -91,9 +103,10 @@ let db: SupabaseClient;
 beforeAll(() => { db = createClient(URL, SERVICE, { auth: { persistSession: false } }); });
 
 describe("runIngest", () => {
-  it("writes conversation, transcript, commitments, and drafts", async () => {
+  it("writes commitments, action suggestions, and only the planned Gmail draft", async () => {
     const r = await runIngest(db, args, bothCalls);
     expect(r.commitmentCount).toBe(1);
+    expect(r.actionCount).toBe(2);
     expect(r.draftCount).toBe(1);
 
     const { data: t } = await db.from("transcript").select("*").eq("id", r.transcriptId).single();
@@ -107,6 +120,14 @@ describe("runIngest", () => {
 
     const { data: d } = await db.from("deliverable_draft").select("*").eq("commitment_id", c![0].id);
     expect(d!).toHaveLength(1);
+
+    const { data: actions } = await db.from("commitment_action_suggestion")
+      .select("action_type,confidence,rationale,required_data,missing_data")
+      .eq("commitment_id", c![0].id);
+    expect(actions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ action_type: "gmail_draft", confidence: "high" }),
+      expect.objectContaining({ action_type: "internal_task", confidence: "high" }),
+    ]));
   });
 
   it("writes an agent-actor audit row", async () => {
@@ -156,6 +177,7 @@ describe("runIngest", () => {
 
     const retried = await retryExtractionFor(db, r.transcriptId, bothCalls);
     expect(retried.commitmentCount).toBe(1);
+    expect(retried.actionCount).toBe(2);
     expect(retried.draftCount).toBe(1);
 
     const { data: oldDrafts } = await db.from("deliverable_draft").select("id").in("commitment_id", oldIds);
@@ -205,6 +227,29 @@ describe("runIngest", () => {
         ...DEFAULT_BLUEPRINT,
       });
     }
+  });
+
+  it("does not generate an email draft when planning suggests internal work only", async () => {
+    const r = await runIngest(db, args, mockReturning({
+      commitments: [{
+        text: "Update the internal lesson plan", owner: "Tutor", deadline: "2026-08-14",
+        type: "deliverable", confidence: "high",
+        source_span: "I'll send Mia a revised practice set by Friday",
+      }],
+      actions: [{
+        type: "internal_task", confidence: "high", rationale: "This is internal preparation work.",
+        required_data: ["task_title", "owner", "due_date"], missing_data: [],
+      }],
+      subject: "Should not be used", body: "No email is appropriate.",
+    }));
+    expect(r.actionCount).toBe(1);
+    expect(r.draftCount).toBe(0);
+
+    const { data: c } = await db.from("commitment").select("id")
+      .eq("conversation_id", r.conversationId).single();
+    const { data: drafts } = await db.from("deliverable_draft").select("id")
+      .eq("commitment_id", c!.id);
+    expect(drafts).toHaveLength(0);
   });
 
   it("pairs each draft with its own commitment, not with array position", async () => {

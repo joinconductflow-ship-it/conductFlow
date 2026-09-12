@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LanguageModel } from "ai";
 import { extractCommitments } from "@/lib/agent/extract";
+import { planCommitmentActions } from "@/lib/agent/action-plan";
 import { generateFollowUpDraft } from "@/lib/agent/draft";
 import { canExecute } from "@/lib/agent/execute-policy";
 import { contractFor } from "@/lib/agent/blueprint-store";
@@ -22,7 +23,7 @@ export interface IngestArgs {
 
 export interface IngestResult {
   conversationId: string; transcriptId: string;
-  commitmentCount: number; draftCount: number;
+  commitmentCount: number; actionCount: number; draftCount: number;
   dropped: number; flagged: string[];
 }
 
@@ -232,6 +233,50 @@ async function finishIngestAfterExtraction(
   // that hasn't opted in. A commitment the model flags as out-of-scope gets a change-order
   // draft instead of a normal follow-up (excluded from the drafts loop below), so the extra
   // ask isn't quietly treated as ordinary, already-agreed-to work.
+  // Plan only after extraction has persisted the promise. Planning may suggest no actions;
+  // it is never permission to perform an external action.
+  const planned = await Promise.allSettled(pairs.map(async ({ id, commitment: c }) => {
+    const plan = await planCommitmentActions({
+      commitmentText: c.text,
+      owner: c.owner,
+      deadline: c.deadline,
+      commitmentType: c.type,
+      sourceSpan: c.source_span,
+    }, model);
+
+    if (plan.actions.length > 0) {
+      const { error } = await db.from("commitment_action_suggestion").insert(
+        plan.actions.map((action) => ({
+          org_id: ctx.orgId,
+          commitment_id: id,
+          action_type: action.type,
+          confidence: action.confidence,
+          rationale: action.rationale,
+          required_data: action.required_data,
+          missing_data: action.missing_data,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    return { id, actions: plan.actions };
+  }));
+
+  const gmailDraftIds = new Set<string>();
+  let actionCount = 0;
+  for (const result of planned) {
+    if (result.status === "rejected") {
+      // Suggestions are secondary to preserving the extracted commitment. A model or
+      // persistence failure is observable in logs but must not make ingest invent an email.
+      logFailure("finishIngest.actionPlan", result.reason);
+      continue;
+    }
+    actionCount += result.value.actions.length;
+    if (result.value.actions.some((action) => action.type === "gmail_draft")) {
+      gmailDraftIds.add(result.value.id);
+    }
+  }
+
   const scopeChecks = await Promise.allSettled(pairs.map(async ({ id, commitment: c }) => {
     const result = await gateCommitmentScope(db,
       { id, org_id: ctx.orgId, client_id: ctx.clientId, text: c.text }, {}, model);
@@ -258,7 +303,7 @@ async function finishIngestAfterExtraction(
   // `connected_data_source`'s token columns are service-role only — `contextForOrg` must
   // not be handed the session-scoped `db`, or every org's Google context resolves empty
   // regardless of connection state.
-  const context = draftDecision.ok && contextSources.length > 0
+  const context = draftDecision.ok && gmailDraftIds.size > 0 && contextSources.length > 0
     ? await contextForOrg(getServiceClient(), {
       orgId: ctx.orgId, clientName: ctx.clientName, occurredAt: ctx.occurredAt,
       allowedSources: contextSources,
@@ -267,7 +312,9 @@ async function finishIngestAfterExtraction(
 
   // A draft failing is not an ingest failing — that commitment keeps the empty-draft state.
   const drafts = draftDecision.ok
-    ? await Promise.allSettled(pairs.filter(({ id }) => !outOfScopeIds.has(id)).map(async ({ id, commitment: c }) => {
+    ? await Promise.allSettled(pairs.filter(({ id }) =>
+      gmailDraftIds.has(id) && !outOfScopeIds.has(id),
+    ).map(async ({ id, commitment: c }) => {
       const draft = await generateFollowUpDraft({
         templateText: context.templateText, meetingContext: context.meetingContext,
         commitmentText: c.text, clientName: ctx.clientName,
@@ -292,7 +339,7 @@ async function finishIngestAfterExtraction(
 
   return {
     conversationId: ctx.conversationId, transcriptId: ctx.transcriptId,
-    commitmentCount: pairs.length, draftCount,
+    commitmentCount: pairs.length, actionCount, draftCount,
     dropped: extracted.dropped, flagged: extracted.flagged,
   };
 }
