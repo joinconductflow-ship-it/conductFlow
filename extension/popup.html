@@ -5,9 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Meeting Transcript</title>
     <style>
+      /* Same palette and scale as app/globals.css (dark theme), so the extension reads as
+         part of ConductFlow rather than a generic browser-extension popup. */
       :root {
-        color-scheme: light;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color-scheme: dark;
+        --canvas: #0A0A0B;
+        --surface: #131316;
+        --raised: #1A1A20;
+        --raised-hover: #22222A;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.14);
+        --text: #EDEDEF;
+        --muted: #9A9AA5;
+        --faint: #868692;
+        --accent: #5B5EF0;
+        --accent-hover: #6C6FF3;
+        --danger: #E5484D;
+        --danger-text: #FF6B70;
+        --danger-quiet: rgba(229, 72, 77, 0.10);
+        --radius: 6px;
+        --radius-lg: 8px;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      /* Rounds the popup window's own corners — Chrome respects a border-radius on html/body
+         in an extension popup as long as overflow is hidden to clip the corner pixels. */
+      html {
+        border-radius: 12px;
+        overflow: hidden;
       }
 
       body {
@@ -16,30 +41,32 @@
         min-height: 430px;
         margin: 0;
         padding: 18px;
-        color: #172033;
-        background: #f6f8fc;
+        color: var(--text);
+        background: var(--canvas);
+        border-radius: 12px;
       }
 
       h1 {
         margin: 0 0 4px;
         font-size: 18px;
+        color: var(--text);
       }
 
       .privacy {
         margin: 0 0 14px;
-        color: #526078;
+        color: var(--faint);
         font-size: 12px;
       }
 
       .status {
         min-height: 18px;
         margin-bottom: 12px;
-        color: #35415a;
+        color: var(--muted);
         font-size: 12px;
       }
 
       .status[data-kind="error"] {
-        color: #a11f2c;
+        color: var(--danger-text);
       }
 
       .controls {
@@ -50,13 +77,14 @@
       }
 
       button {
-        border: 0;
-        border-radius: 8px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-lg);
         padding: 9px 12px;
         font: inherit;
         font-size: 13px;
         font-weight: 650;
         cursor: pointer;
+        transition: background 120ms ease;
       }
 
       button:disabled {
@@ -65,13 +93,18 @@
       }
 
       #start {
-        color: white;
-        background: #3157d5;
+        color: var(--text);
+        background: var(--accent);
+      }
+
+      #start:not(:disabled):hover {
+        background: var(--accent-hover);
       }
 
       #stop {
-        color: #8f1c2b;
-        background: #f7dfe3;
+        color: var(--danger-text);
+        background: var(--danger-quiet);
+        border-color: rgba(229, 72, 77, 0.34);
       }
 
       #transcript {
@@ -79,25 +112,26 @@
         width: 100%;
         height: 250px;
         resize: none;
-        border: 1px solid #ccd3df;
-        border-radius: 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
         padding: 10px;
-        color: #172033;
-        background: white;
+        color: var(--text);
+        background: var(--surface);
         font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
 
       #suggestions {
         margin-bottom: 12px;
-        border: 1px solid #ccd3df;
-        border-radius: 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
         padding: 10px;
-        background: white;
+        background: var(--surface);
       }
 
       #suggestions h2 {
         margin: 0 0 6px;
         font-size: 14px;
+        color: var(--text);
       }
 
       #suggestion-list {
@@ -105,19 +139,25 @@
         padding-left: 20px;
         font-size: 13px;
         line-height: 1.4;
+        color: var(--text);
       }
 
       #suggestion-empty {
         margin: 0;
-        color: #526078;
+        color: var(--faint);
         font-size: 12px;
       }
 
       #copy {
         width: 100%;
         margin-top: 8px;
-        color: #253148;
-        background: #e6eaf2;
+        color: var(--text);
+        background: var(--raised);
+        border-color: var(--border-strong);
+      }
+
+      #copy:not(:disabled):hover {
+        background: var(--raised-hover);
       }
     </style>
   </head>
