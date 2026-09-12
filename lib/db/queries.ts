@@ -2,7 +2,14 @@ import { getServerClient } from "./server";
 import { logFailure } from "@/lib/observability/log";
 import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { readPageQuery } from "./page-read";
-import type { Commitment, DeliverableDraft, Transcript, Task, TaskStatus } from "@/lib/types";
+import type {
+  Commitment,
+  CommitmentActionSuggestion,
+  DeliverableDraft,
+  Transcript,
+  Task,
+  TaskStatus,
+} from "@/lib/types";
 
 /** No session is normal; failure to verify an existing session is not sign-out. */
 export async function getCurrentUser(context: string, db?: Awaited<ReturnType<typeof getServerClient>>) {
@@ -56,6 +63,18 @@ export async function getDraftForCommitment(id: string): Promise<DeliverableDraf
     .eq("commitment_id", id).limit(1).maybeSingle();
   if (error) throw error;
   return (data ?? null) as DeliverableDraft | null;
+}
+
+export async function getActionSuggestionsForCommitment(
+  commitmentId: string,
+): Promise<CommitmentActionSuggestion[]> {
+  const s = await getServerClient();
+  const { data, error } = await s.from("commitment_action_suggestion")
+    .select("id,org_id,commitment_id,action_type,confidence,rationale,required_data,missing_data,created_at")
+    .eq("commitment_id", commitmentId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as CommitmentActionSuggestion[];
 }
 
 export interface ClientContact { id: string; org_id: string; name: string; kind: string | null; }

@@ -9,18 +9,23 @@ import { GmailInvalidGrantError, GmailUnauthorizedError } from "@/lib/gmail/clie
 import { getAccessToken, invalidateCachedToken, DataSourceUnavailable } from "@/lib/google/tokens";
 import { CAPABILITIES } from "@/lib/google/scopes";
 import { logAudit } from "@/lib/audit/log";
+import {
+  runApprovedActionSelection,
+  selectPersistedSuggestions,
+} from "@/lib/approvals/action-selection";
 import { revalidatePath } from "next/cache";
-import type { Commitment } from "@/lib/types";
+import type { Commitment, CommitmentActionSuggestion } from "@/lib/types";
 
 const GMAIL_COMPOSE_SCOPE = CAPABILITIES.gmail_drafts.scopes[0];
 
-async function currentUserId(): Promise<string | null> {
+async function currentUserId(): Promise<string> {
   const s = await getServerClient();
-  const { data } = await s.auth.getUser();
-  return data.user?.id ?? null;
+  const { data, error } = await s.auth.getUser();
+  if (error || !data.user) throw new Error("Unable to verify your session. Please sign in again.");
+  return data.user.id;
 }
 
-export async function approveAndCreateTask(commitmentId: string) {
+export async function approveDetectedActions(commitmentId: string, selectedActionIds: string[]) {
   const uid = await currentUserId();
   const s = await getServerClient();
   const { data, error: fetchError } = await s.from("commitment").select("*")
@@ -28,34 +33,88 @@ export async function approveAndCreateTask(commitmentId: string) {
   if (fetchError || !data) throw new Error("commitment not found");
   const c = data as Commitment;
 
-  // A commitment past `proposed` was already approved. Re-clicking approve (e.g. after a
-  // failed Gmail push) must not insert a second approval_event/task or flip a `done`
-  // commitment back to `tasked` — it should only retry the push.
-  if (c.status === "proposed") {
-    await executeAction(
-      { action: "create_internal_task", orgId: c.org_id, actorUserId: uid, actor: "human",
-        // This copies an approved commitment into a task; it fetches no source data.
-        subjectType: "commitment", subjectId: commitmentId, approved: true, sources: [] },
-      async () => {
-        const { error: approvalError } = await s.from("approval_event").insert({
-          org_id: c.org_id, subject_type: "commitment",
-          subject_id: commitmentId, state: "approved", actor_user_id: uid });
-        if (approvalError) throw approvalError;
-        const { error: taskError } = await s.from("task").insert({ org_id: c.org_id,
-          commitment_id: commitmentId, title: c.text, owner: c.owner, due: c.deadline });
-        if (taskError) throw taskError;
-        const { error: updateError } = await s.from("commitment").update({ status: "tasked" })
-          .eq("id", commitmentId).eq("org_id", c.org_id);
-        if (updateError) throw updateError;
-      }
+  // Never trust action types posted by the client. RLS first proves this user can read the
+  // commitment's persisted planner output, then IDs are matched against exactly those rows.
+  const { data: suggestionRows, error: suggestionError } = await s
+    .from("commitment_action_suggestion")
+    .select("id,org_id,commitment_id,action_type,confidence,rationale,required_data,missing_data,created_at")
+    .eq("commitment_id", commitmentId)
+    .eq("org_id", c.org_id);
+  if (suggestionError) throw suggestionError;
+  const selected = selectPersistedSuggestions(
+    selectedActionIds,
+    (suggestionRows ?? []) as CommitmentActionSuggestion[],
+  );
+
+  const { data: existingApprovals, error: approvalLookupError } = await s
+    .from("approval_event")
+    .select("subject_id")
+    .eq("org_id", c.org_id)
+    .eq("subject_type", "commitment_action_suggestion")
+    .eq("state", "approved")
+    .in("subject_id", selected.map((suggestion) => suggestion.id));
+  if (approvalLookupError) throw approvalLookupError;
+  const approvedIds = new Set((existingApprovals ?? []).map((row) => row.subject_id as string));
+  const newApprovals = selected.filter((suggestion) => !approvedIds.has(suggestion.id));
+  if (newApprovals.length > 0) {
+    const { error: actionApprovalError } = await s.from("approval_event").insert(
+      newApprovals.map((suggestion) => ({
+        org_id: c.org_id,
+        subject_type: "commitment_action_suggestion",
+        subject_id: suggestion.id,
+        state: "approved",
+        actor_user_id: uid,
+      })),
     );
+    if (actionApprovalError) throw actionApprovalError;
   }
-  // The Gmail push is a separate, approval-gated action. It runs after the task exists so
-  // a Google failure never costs the approval — the user can retry it from the review screen.
-  const push = await pushApprovedDraft(commitmentId);
+
+  const result = await runApprovedActionSelection(selected, {
+    createTask: async () => {
+      const { data: existingTask, error: taskLookupError } = await s.from("task")
+        .select("id").eq("commitment_id", commitmentId).limit(1).maybeSingle();
+      if (taskLookupError) throw taskLookupError;
+      if (existingTask) {
+        if (c.status === "proposed" || c.status === "approved") {
+          const { error: updateError } = await s.from("commitment").update({ status: "tasked" })
+            .eq("id", commitmentId).eq("org_id", c.org_id);
+          if (updateError) throw updateError;
+        }
+        return;
+      }
+
+      await executeAction(
+        { action: "create_internal_task", orgId: c.org_id, actorUserId: uid, actor: "human",
+          subjectType: "commitment", subjectId: commitmentId, approved: true, sources: [] },
+        async () => {
+          const { error: approvalError } = await s.from("approval_event").insert({
+            org_id: c.org_id, subject_type: "commitment",
+            subject_id: commitmentId, state: "approved", actor_user_id: uid });
+          if (approvalError) throw approvalError;
+          const { error: taskError } = await s.from("task").insert({ org_id: c.org_id,
+            commitment_id: commitmentId, title: c.text, owner: c.owner, due: c.deadline });
+          if (taskError) throw taskError;
+          const { error: updateError } = await s.from("commitment").update({ status: "tasked" })
+            .eq("id", commitmentId).eq("org_id", c.org_id);
+          if (updateError) throw updateError;
+        },
+      );
+    },
+    pushGmailDraft: () => pushApprovedDraft(commitmentId),
+  });
+
+  // An approval without a task is still a reviewed commitment. Calendar and Drive remain
+  // proposals only; this status change does not execute either provider action.
+  if (!selected.some((suggestion) => suggestion.action_type === "internal_task") &&
+      c.status === "proposed") {
+    const { error: updateError } = await s.from("commitment").update({ status: "approved" })
+      .eq("id", commitmentId).eq("org_id", c.org_id);
+    if (updateError) throw updateError;
+  }
+
   revalidatePath("/queue");
   revalidatePath(`/queue/${commitmentId}`);
-  return push;
+  return result;
 }
 
 export interface PushSummary { pushed: boolean; reason?: string }
@@ -69,7 +128,7 @@ export interface PushSummary { pushed: boolean; reason?: string }
  *
  * `orgId` and the actor come from the session, not from the caller, on purpose: this is an
  * exported server action, reachable directly from the client independent of
- * `approveAndCreateTask`. The draft lookup runs on the session-scoped client, so RLS is what
+ * `approveDetectedActions`. The draft lookup runs on the session-scoped client, so RLS is what
  * proves the caller may see this commitment's draft at all — every service-role call after it
  * uses the org that RLS already vouched for, never a value an untrusted caller could supply.
  */

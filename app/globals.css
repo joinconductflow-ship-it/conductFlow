@@ -667,6 +667,17 @@ button:hover:not(:disabled),
   }
 }
 
+@media (max-width: 560px) {
+  .detected-action-row {
+    grid-template-columns: 30px minmax(0, 1fr) !important;
+  }
+
+  .detected-action-state {
+    grid-column: 2;
+    text-align: left !important;
+  }
+}
+
 @keyframes cf-pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.75; }

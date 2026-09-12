@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { readPageData } from "@/lib/db/page-read";
 import { Unavailable } from "@/components/ui/Unavailable";
-import { getCommitment, getDraftForCommitment, getTranscriptForCommitment } from "@/lib/db/queries";
+import {
+  getActionSuggestionsForCommitment,
+  getCommitment,
+  getDraftForCommitment,
+  getTranscriptForCommitment,
+} from "@/lib/db/queries";
 import { DraftSurface } from "@/components/draft/DraftSurface";
 import { ApprovalBar } from "@/components/draft/ApprovalBar";
 import { GenerateDraftButton } from "@/components/draft/GenerateDraftButton";
@@ -29,10 +34,12 @@ function Fact({ label, value, tone }:
 
 export default async function DraftReview({ params }: { params: Promise<{ commitmentId: string }> }) {
   const { commitmentId } = await params;
-  const [commitmentResult, draftResult, transcriptResult] = await Promise.all([
+  const [commitmentResult, draftResult, transcriptResult, actionSuggestionsResult] = await Promise.all([
     readPageData(`/queue/[commitmentId]: commitment ${commitmentId}`, () => getCommitment(commitmentId)),
     readPageData(`/queue/[commitmentId]: deliverable_draft ${commitmentId}`, () => getDraftForCommitment(commitmentId)),
     readPageData(`/queue/[commitmentId]: transcript ${commitmentId}`, () => getTranscriptForCommitment(commitmentId)),
+    readPageData(`/queue/[commitmentId]: commitment_action_suggestion ${commitmentId}`,
+      () => getActionSuggestionsForCommitment(commitmentId)),
   ]);
   const c = commitmentResult.data;
   const draft = draftResult.data;
@@ -96,7 +103,11 @@ export default async function DraftReview({ params }: { params: Promise<{ commit
             <DraftSurface draft={draft} provenance={["transcript", "client record"]} />
             <GenerateDraftButton commitmentId={c.id} hasDraft={!!draft} />
           </>}
-          {!draftResult.unavailable && !transcriptResult.unavailable && <ApprovalBar commitmentId={c.id} />}
+          {actionSuggestionsResult.unavailable && <Unavailable section="Detected actions are" />}
+          {!draftResult.unavailable && !transcriptResult.unavailable &&
+            !actionSuggestionsResult.unavailable && (
+              <ApprovalBar commitmentId={c.id} actions={actionSuggestionsResult.data ?? []} />
+            )}
         </div>
 
         <aside style={{ flex: "0 1 208px", minWidth: 180 }}>

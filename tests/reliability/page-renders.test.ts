@@ -91,6 +91,9 @@ beforeEach(() => {
     commitment: [{ ...base, conversation_id: ID, text: "Healthy commitment", owner: "Alex", deadline: DATE, type: "follow_up", confidence: "high", source_span: "I will follow up", status: "proposed", source_flagged: false }],
     transcript: [{ ...base, conversation_id: ID, injection_flags: [], extraction_status: "failed", conversation: { title: "Healthy transcript" }, extraction_error: "Parsing failed" }],
     deliverable_draft: [{ ...base, commitment_id: ID, kind: "email", subject: "Healthy deliverable", body: "Draft body" }],
+    commitment_action_suggestion: [{ ...base, commitment_id: ID, action_type: "gmail_draft",
+      confidence: "high", rationale: "A follow-up should be drafted", required_data: ["body"],
+      missing_data: [] }],
     task: [{ ...base, commitment_id: ID, title: "Healthy task", status: "open", due: DATE, completed_at: null, commitment: { client_contact: { name: "Healthy client" } } }],
     reminder: [{ ...base, task_id: ID, due_at: DATE, state: "open", task: { title: "Healthy reminder" } }],
     escalation: [{ ...base, conversation_id: ID, commitment_id: ID, state: "open", kind: "complaint", detail: "Healthy escalation", severity: "warn", conversation: { title: "Healthy conversation" } }],
@@ -129,7 +132,7 @@ const pages = [
   { route: "/reports", render: Reports, tables: ["time_entry", "invoice", "client_contact", "billing_rate"] },
   { route: "/settings", render: () => Settings({ searchParams: Promise.resolve({}) }), tables: ["connected_data_source_public"] },
   { route: "/settings/blueprint", render: Blueprint, tables: ["agent_blueprint", "membership:role"] },
-  { route: "/queue/[commitmentId]", render: () => DraftReview({ params: Promise.resolve({ commitmentId: ID }) }), tables: ["commitment", "deliverable_draft", "transcript"] },
+  { route: "/queue/[commitmentId]", render: () => DraftReview({ params: Promise.resolve({ commitmentId: ID }) }), tables: ["commitment", "deliverable_draft", "transcript", "commitment_action_suggestion"] },
 ];
 
 it("covers every page and layout under app/(app)", () => {
@@ -216,6 +219,24 @@ describe("independent sections and safe fallbacks", () => {
     const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));
     expect(html).toContain("Healthy commitment");
     expect(html).not.toContain("Approve");
+  });
+  it("does not offer approval when detected actions cannot be read", async () => {
+    failing.add("commitment_action_suggestion");
+    const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));
+    expect(html).toContain("Detected actions are temporarily unavailable");
+    expect(html).not.toContain("Approve action");
+  });
+  it("renders only persisted suggestions and shows missing-data state", async () => {
+    rows.commitment_action_suggestion = [{
+      id: ID, org_id: ORG, commitment_id: ID, action_type: "calendar_event",
+      confidence: "medium", rationale: "Schedule the promised check-in",
+      required_data: ["start_time"], missing_data: ["start_time"], created_at: DATE,
+    }];
+    const html = renderToStaticMarkup(await DraftReview({ params: Promise.resolve({ commitmentId: ID }) }));
+    expect(html).toContain("Create event");
+    expect(html).toContain("Time needed");
+    expect(html).not.toContain("Create draft");
+    expect(html).not.toContain("Track commitment");
   });
   it("does not call a query outage a missing commitment", async () => {
     failing.add("commitment");
