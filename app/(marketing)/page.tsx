@@ -5,11 +5,15 @@ import { Badge, buttonStyle, Card, SectionLabel, StatusPill } from "@/components
 import { HARD_PROHIBITED } from "@/lib/agent/blueprint";
 import type { Viewport } from "next";
 
-/** Published as a GitHub release asset: 97 MB is too large for the repo or a Vercel
+/** Published as a GitHub release asset: ~96 MB is too large for the repo or a Vercel
  *  deploy, and a release gives the file a stable URL and a place to state the
- *  unsigned/Apple-Silicon caveats in full. */
+ *  unsigned/Apple-Silicon caveats in full.
+ *
+ *  The filename carries no version on purpose. It used to, and the first release that
+ *  bumped the version turned this link into a 404 — /releases/latest/download resolves
+ *  the tag for you but not the asset name. */
 const DESKTOP_DOWNLOAD_URL =
-  "https://github.com/joinconductflow-ship-it/conductFlow/releases/latest/download/conductFlow-1.0.0-arm64.dmg";
+  "https://github.com/joinconductflow-ship-it/conductFlow/releases/latest/download/conductFlow-arm64.dmg";
 
 /**
  * One argument, in order: here is a promise you made, here is the evidence it came from,
