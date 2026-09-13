@@ -40,6 +40,15 @@ export async function getCurrentOrgId(context = "workspace"): Promise<string | n
   }
 }
 
+/** The org's canonical IANA timezone (`organization.timezone`, default UTC). */
+export async function getOrganizationTimeZone(orgId: string): Promise<string> {
+  const s = await getServerClient();
+  const { data, error } = await s.from("organization").select("timezone")
+    .eq("id", orgId).maybeSingle();
+  if (error) throw error;
+  return (data?.timezone as string | undefined) ?? "UTC";
+}
+
 export async function listCommitments(orgId: string): Promise<Commitment[]> {
   const s = await getServerClient();
   // A rejected commitment is meant to disappear ("nothing leaves the building"), not linger

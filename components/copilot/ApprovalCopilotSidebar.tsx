@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { z } from "zod";
 import { CopilotSidebar, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { ToolCallStatus } from "@copilotkit/core";
 import { approveDetectedActions } from "@/app/actions/approvals";
+import { verifyCopilotProposal, type CopilotProposalCheck } from "@/app/actions/copilot";
 import {
   proposeActionParameters,
   runProposalDecision,
   type ProposalValues,
 } from "@/lib/copilot/schemas";
+
+// A stalled eligibility lookup must not leave the proposeAction interrupt unresolved.
+const CHECK_TIMEOUT_MS = 12_000;
 
 const cardStyle: CSSProperties = {
   border: "1px solid var(--border-strong, #444)",
@@ -33,7 +37,9 @@ function actionButton(kind: "approve" | "reject"): CSSProperties {
     padding: "8px 12px",
     borderRadius: 8,
     border: kind === "approve" ? "none" : "1px solid var(--border-strong, #444)",
-    background: kind === "approve" ? "var(--accent, #6366f1)" : "transparent",
+    // CopilotKit scopes its own `--accent` token to a near-white surface inside the sidebar.
+    // Use the app accent-text token so Approve remains visibly actionable there.
+    background: kind === "approve" ? "var(--accent-text, #4D50BC)" : "transparent",
     color: kind === "approve" ? "#fff" : "var(--text, #eee)",
     cursor: "pointer",
     fontSize: 13,
@@ -60,7 +66,9 @@ function ProposalCard() {
       "internal task for a commitment. commitmentId and actionId MUST come from a " +
       "prior listOpenCommitments call in this conversation — call listOpenCommitments " +
       "first if you haven't already, even if the human named the commitment; never " +
-      "invent or guess these ids. This pauses so the human can review, edit, and " +
+      "invent or guess these ids. Resolve every relative date against the dateContext " +
+      "returned by listOpenCommitments and pass the human's original phrase as dateText; " +
+      "never invent a year or a date. This pauses so the human can review, edit, and " +
       "approve or reject. Approval executes the action automatically in the UI, before " +
       "this tool returns — there is no execute tool to call. The result you get back " +
       "is {approved: boolean, execution?: {actions, complete}} describing what was " +
@@ -100,6 +108,12 @@ function ProposalCardBody({ args, respond }: {
   respond: (result: unknown) => Promise<void>;
 }) {
   const [state, setState] = useState<"pending" | "sent">("pending");
+  // Canonical eligibility is verified server-side before any action controls render. A
+  // fabricated or stale id can never become an actionable card or reach execution.
+  const [check, setCheck] = useState<CopilotProposalCheck | null>(null);
+  // The proposeAction interrupt is resolved exactly once. Any state that can't offer a normal
+  // decision still has a guaranteed respond (Cancel/Dismiss), so no tool call is left hanging.
+  const respondedRef = useRef(false);
   // Ownership is tracked by which fields the human touched, independent of the value, so a
   // cleared field is still reviewer-owned and cannot fall back to a source default. Clearing
   // itself is tracked separately: only an explicitly emptied field is in `cleared`.
@@ -112,6 +126,60 @@ function ProposalCardBody({ args, respond }: {
     documentTitle: args.documentTitle ?? "",
     documentDetails: args.documentDetails ?? "",
   }));
+
+  async function resolveOnce(result: unknown) {
+    if (respondedRef.current) return;
+    respondedRef.current = true;
+    setState("sent");
+    await respond(result);
+  }
+
+  useEffect(() => {
+    let active = true;
+    const failPending = (message: string) => {
+      if (!active || respondedRef.current) return;
+      setCheck({ eligible: false, message });
+      // Resolve immediately: a check that never returns must not strand the tool call.
+      void resolveOnce({ approved: false, ineligible: true, message });
+    };
+    const timeout = setTimeout(
+      () => failPending("I couldn't verify that commitment in time. Please try again."),
+      CHECK_TIMEOUT_MS,
+    );
+    verifyCopilotProposal({
+      commitmentId: args.commitmentId,
+      actionId: args.actionId,
+      actionType: args.actionType,
+      dateText: args.dateText,
+    })
+      .then((result) => {
+        if (!active) return;
+        clearTimeout(timeout);
+        setCheck(result);
+        if (result.eligible && result.resolvedDate) {
+          // The authoritative server resolution supersedes the model's date guess. The human
+          // has not edited anything yet, so this is a system default, not reviewer ownership.
+          // The resolved date is also an explicit server confirmation of the relative phrase;
+          // preserve that confirmation in the approval payload so Calendar readiness does not
+          // require a second, unavailable checkbox in the Copilot card.
+          setValues((current) => ({
+            ...current,
+            date: result.resolvedDate!,
+            relativeDateConfirmed: true,
+          }));
+        }
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        failPending("I couldn't verify that commitment. Please try again.");
+      });
+    return () => { active = false; clearTimeout(timeout); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [args.commitmentId, args.actionId, args.actionType, args.dateText]);
+
+  async function dismissIneligible() {
+    await resolveOnce({ approved: false, ineligible: true, message: check?.message });
+  }
 
   function patch(key: keyof ProposalValues, value: string) {
     setTouched((current) => {
@@ -134,34 +202,65 @@ function ProposalCardBody({ args, respond }: {
   }
 
   async function decide(approved: boolean) {
-    setState("sent");
     // Build and execute the authoritative payload from UI state, then resume the run with the
     // result. The model never carries the approved values or provenance.
-    const result = await runProposalDecision(
-      approved,
-      { commitmentId: args.commitmentId, actionId: args.actionId },
-      values,
-      [...touched],
-      [...cleared],
-      async (payload) => {
-        try {
-          return await approveDetectedActions(
-            payload.commitmentId,
-            [payload.actionId],
-            { [payload.actionId]: payload.inputData },
-            payload.reviewerEditedFields.length > 0
-              ? { [payload.actionId]: payload.reviewerEditedFields }
-              : {},
-            payload.clearedFields.length > 0
-              ? { [payload.actionId]: payload.clearedFields }
-              : {},
-          );
-        } catch (error) {
-          return { error: error instanceof Error ? error.message : "Approval failed." };
-        }
-      },
-    );
-    await respond(result);
+    let result: unknown;
+    try {
+      result = await runProposalDecision(
+        approved,
+        { commitmentId: args.commitmentId, actionId: args.actionId },
+        values,
+        [...touched],
+        [...cleared],
+        async (payload) => {
+          try {
+            return await approveDetectedActions(
+              payload.commitmentId,
+              [payload.actionId],
+              { [payload.actionId]: payload.inputData },
+              payload.reviewerEditedFields.length > 0
+                ? { [payload.actionId]: payload.reviewerEditedFields }
+                : {},
+              payload.clearedFields.length > 0
+                ? { [payload.actionId]: payload.clearedFields }
+                : {},
+            );
+          } catch (error) {
+            return { error: error instanceof Error ? error.message : "Approval failed." };
+          }
+        },
+      );
+    } catch (error) {
+      result = { approved: false, error: error instanceof Error ? error.message : "Approval failed." };
+    }
+    await resolveOnce(result);
+  }
+
+  if (check === null) {
+    // Always offer a way to resolve the interrupt, even while the check is in flight.
+    return <div style={cardStyle}>
+      <span style={labelStyle}>Checking the commitment…</span>
+      <div style={buttonRowStyle}>
+        <button style={actionButton("reject")} onClick={() => dismissIneligible()}>Cancel</button>
+      </div>
+    </div>;
+  }
+
+  if (!check.eligible) {
+    return <div style={cardStyle}>
+      <div style={rowStyle}>
+        <strong>Proposal unavailable</strong>
+        <span style={labelStyle}>{args.actionType}</span>
+      </div>
+      <p style={{ margin: 0 }}>
+        {check.message ?? "I don't have an eligible commitment to create this action from yet."}
+      </p>
+      {state === "pending"
+        ? <div style={buttonRowStyle}>
+          <button style={actionButton("reject")} onClick={dismissIneligible}>Dismiss</button>
+        </div>
+        : <span style={labelStyle}>Dismissed.</span>}
+    </div>;
   }
 
   return <div style={cardStyle}>
