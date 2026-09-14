@@ -626,13 +626,27 @@ button:hover:not(:disabled),
   border-radius: var(--radius-sm);
   color: var(--muted);
   white-space: nowrap;
-  transition: background var(--motion), color var(--motion);
+  position: relative;
+  transition: background var(--motion), color var(--motion), transform var(--motion);
 }
 .cf-nav-link:hover { background: var(--surface-hover); color: var(--text); }
+.cf-nav-link:active { transform: scale(0.97); }
 .cf-nav-link[aria-current="page"] {
   background: var(--raised);
   color: var(--text);
   font-weight: 600;
+}
+/* A hairline accent under the active item repeats the destination signal a third way,
+   underneath the fill and the weight change, without adding another color to read. */
+.cf-nav-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
 /* A queue row is one big hit target; the arrow only confirms where the click will land. */
