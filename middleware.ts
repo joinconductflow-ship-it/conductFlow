@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { readEnv } from "@/lib/env";
 
 /**
  * Content Security Policy, built per request because two of its values are not knowable
@@ -86,7 +87,42 @@ function buildCsp(nonce: string, isDev: boolean): string {
   return isDev ? serialized : `${serialized}; upgrade-insecure-requests`;
 }
 
+/**
+ * Send every request to the canonical origin when `SITE_ORIGIN` names one.
+ *
+ * Sign-in is why this exists. `siteOrigin()` builds the OAuth `redirect_to` from
+ * `SITE_ORIGIN`, so a flow started on any other host that serves this deployment — the
+ * generated `*.vercel.app` alias, say — writes its PKCE code verifier as a host-only
+ * cookie on that host and then comes back to the canonical one, which never receives it.
+ * The exchange fails with `auth_exchange_failed` and the only clue is that the user
+ * arrived by the other name. Moving them before the flow starts is the fix; doing it here
+ * covers every entry point rather than the sign-in route alone.
+ *
+ * Preview deployments leave `SITE_ORIGIN` unset on purpose, and there the forwarded host
+ * is the origin, so this is a no-op and previews keep working.
+ */
+function canonicalRedirect(request: NextRequest): NextResponse | null {
+  const configured = readEnv("SITE_ORIGIN");
+  if (!configured) return null;
+
+  let canonical: URL;
+  try {
+    canonical = new URL(configured);
+  } catch {
+    return null;
+  }
+
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (!host || host === canonical.host) return null;
+
+  const target = new URL(request.nextUrl.pathname + request.nextUrl.search, canonical.origin);
+  return NextResponse.redirect(target, 308);
+}
+
 export function middleware(request: NextRequest) {
+  const offCanonical = canonicalRedirect(request);
+  if (offCanonical) return offCanonical;
+
   const isDev = process.env.NODE_ENV !== "production";
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const csp = buildCsp(nonce, isDev);

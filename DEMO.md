@@ -4,7 +4,7 @@ A step-by-step walkthrough for recording a live product demo of ConductFlow.
 Everything below was tested against the real production deployment on 2026-09-11,
 including the live AI calls — not a scripted mock.
 
-- **Live app:** https://conductflow-woad.vercel.app
+- **Live app:** https://conductflow.tech
 - **GitHub repo:** https://github.com/joinconductflow-ship-it/conductFlow
 - **Sign-in:** Google OAuth ("Continue with Google") or the email sign-in link. The
   account already used for testing (`sai.chowdarapu09@gmail.com`) is allowlisted for the
@@ -21,7 +21,7 @@ sections 1–3 if you're short on time.
 
 ## Before you hit record
 
-1. Open https://conductflow-woad.vercel.app/queue and sign in once so the session is warm
+1. Open https://conductflow.tech/queue and sign in once so the session is warm
    — the first Google OAuth redirect is not something you want live on camera.
 2. Look at the queue. You should see 4 items ("send the invoice", "schedule the makeup
    session", "send a progress note" — marked overdue, "email you the revised practice

@@ -55,7 +55,10 @@ Vitest — the guard is enforced by `npm test`, not by the production build. Ver
 
 ## Current deployment status (updated 2026-09-11)
 
-Live at **https://conductflow-woad.vercel.app**, on the `joinconductflow-8385` Vercel
+Live at **https://conductflow.tech**, the canonical origin named by `SITE_ORIGIN`. The
+generated `conductflow-woad.vercel.app` alias still resolves and now 308s here, because a
+sign-in started on the alias leaves its PKCE verifier cookie on that host and the callback
+arrives on this one. Hosted on the `joinconductflow-8385` Vercel
 account and the `fauqimhboonrmjzrnkzl` Supabase project (both under
 `joinconductflow@gmail.com`). Google OAuth runs through a Cloud project named
 `conductflow-auth`, also under that account. All 20 migrations are applied. This section
