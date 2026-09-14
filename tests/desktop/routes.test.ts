@@ -235,3 +235,25 @@ describe("POST /api/desktop/execute", () => {
     expect(payload.calendarError).toMatch(/calendar unavailable/);
   });
 });
+
+describe("GET /api/desktop/inbox", () => {
+  function get(token: string | null = TOKEN) {
+    return new Request("http://localhost/api/desktop/inbox", {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+  }
+
+  it("refuses a missing or revoked token", async () => {
+    const { GET } = await import("@/app/api/desktop/inbox/route");
+    expect((await GET(get(null))).status).toBe(401);
+
+    tokenRow = { ...tokenRow!, revoked_at: new Date().toISOString() };
+    expect((await GET(get())).status).toBe(401);
+  });
+
+  it("treats a token lookup failure as unavailable, never as a pass", async () => {
+    lookupError = { message: "connection reset" };
+    const { GET } = await import("@/app/api/desktop/inbox/route");
+    expect((await GET(get())).status).toBe(503);
+  });
+});
