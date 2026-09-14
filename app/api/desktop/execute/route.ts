@@ -4,6 +4,8 @@ import { resolveToken, touchToken } from "@/lib/auth/desktop-token";
 import { runIngest } from "@/lib/ingest/run";
 import { MAX_TRANSCRIPT_CHARS } from "@/lib/agent/schema";
 import { logAudit } from "@/lib/audit/log";
+import { logFailure } from "@/lib/observability/log";
+import { presentError } from "@/lib/errors/presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -175,7 +177,8 @@ export async function POST(request: Request) {
           startsAt: meetingAt,
         });
       } catch (error) {
-        calendarError = error instanceof Error ? error.message : "could not create scheduled session";
+        logFailure("desktop execute scheduled session", { operation: "create_scheduled_session", error });
+        calendarError = "The scheduled session could not be saved. The conversation was still queued.";
       }
     }
 
@@ -192,8 +195,12 @@ export async function POST(request: Request) {
       status: "queued for approval — nothing has been sent",
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "ingest failed";
-    const denied = message.startsWith("action denied");
-    return NextResponse.json({ error: message }, { status: denied ? 403 : 502 });
+    const classification = presentError(err, {
+      fallback: "Couldn't queue this conversation right now. Try again.",
+      provider: "The conversation could not be queued right now. Try again.",
+    });
+    logFailure("desktop execute ingest", { operation: "run_ingest", error: err });
+    const denied = err instanceof Error && err.message.startsWith("action denied");
+    return NextResponse.json({ error: denied ? "This action is not allowed by the workspace policy." : classification }, { status: denied ? 403 : 502 });
   }
 }

@@ -34,7 +34,7 @@ describe("getDrivePickerToken", () => {
     );
   });
 
-  it.each(["missing", "revoked", "scope"] as const)("handles a %s grant", async (reason) => {
+  it.each(["missing", "revoked", "scope", "reconnect"] as const)("handles a %s grant", async (reason) => {
     vi.mocked(getAccessToken).mockRejectedValue(new DataSourceUnavailable("private detail", reason));
     expect(await getDrivePickerToken()).toEqual({ error: "connect_drive" });
   });

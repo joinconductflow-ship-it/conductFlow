@@ -64,13 +64,13 @@ describe("GET /auth/callback", () => {
   it("returns provider errors to onboarding", async () => {
     const response = await GET(new Request("https://app.example/auth/callback?error=access_denied"));
     expect(response.headers.get("location"))
-      .toBe("https://app.example/onboarding?error=access_denied");
+      .toBe("https://app.example/onboarding?error=oauth_denied");
   });
 
   it("returns exchange failures to onboarding", async () => {
     state.exchange.mockResolvedValue({ error: new Error("invalid flow state") });
     const response = await GET(new Request("https://app.example/auth/callback?code=abc"));
     expect(response.headers.get("location"))
-      .toBe("https://app.example/onboarding?error=invalid%20flow%20state");
+      .toBe("https://app.example/onboarding?error=auth_exchange_failed");
   });
 });

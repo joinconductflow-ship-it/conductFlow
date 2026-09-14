@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { requireEnv } from "@/lib/env";
 import { getServiceClient } from "@/lib/db/service";
 import { bootstrapUser } from "@/lib/auth/bootstrap";
+import { logFailure } from "@/lib/observability/log";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
   const oauthError = url.searchParams.get("error");
 
   if (oauthError || !code) {
-    const reason = oauthError ?? "no_code";
+    const reason = oauthError ? "oauth_denied" : "no_code";
     return NextResponse.redirect(new URL(`/onboarding?error=${encodeURIComponent(reason)}`, url.origin));
   }
 
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
       },
     );
   } catch (cause) {
-    console.error("Supabase callback initialization failed", cause);
+    logFailure("Supabase callback initialization", cause);
     return NextResponse.redirect(new URL("/onboarding?error=auth_unavailable", url.origin));
   }
 
@@ -52,17 +53,18 @@ export async function GET(request: Request) {
   try {
     ({ error } = await db.auth.exchangeCodeForSession(code));
   } catch (cause) {
-    console.error("Supabase code exchange failed", cause);
+    logFailure("Supabase code exchange", cause);
     return redirect("/onboarding?error=auth_exchange_failed");
   }
   if (error) {
-    return redirect(`/onboarding?error=${encodeURIComponent(error.message)}`);
+    logFailure("Google auth code exchange", error);
+    return redirect("/onboarding?error=auth_exchange_failed");
   }
 
   const { data: auth, error: userError } = await db.auth.getUser();
   if (userError) {
-    console.error("Supabase session lookup failed after code exchange", userError);
-    return redirect(`/onboarding?error=${encodeURIComponent(userError.message)}`);
+    logFailure("Google auth session lookup", userError);
+    return redirect("/onboarding?error=auth_session_failed");
   }
   if (!auth.user) {
     return redirect("/onboarding?error=no_session");
@@ -84,9 +86,8 @@ export async function GET(request: Request) {
       fullName: (auth.user.user_metadata?.full_name as string | undefined) ?? null,
     });
   } catch (cause) {
-    const reason = cause instanceof Error ? cause.message : "workspace_setup_failed";
-    console.error("bootstrapUser failed after a successful sign-in", cause);
-    return redirect(`/onboarding?error=${encodeURIComponent(reason)}`);
+    logFailure("bootstrapUser after Google sign-in", cause);
+    return redirect("/onboarding?error=workspace_setup_failed");
   }
 
   return redirect("/queue");

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getDrivePickerToken } from "@/app/actions/drive-picker";
 import { Badge, buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 interface Picker { setVisible(visible: boolean): void; dispose(): void }
 interface PickerResponse { action: string; docs?: unknown[] }
@@ -133,7 +134,10 @@ export function TemplatePicker({ disabled = false }: { disabled?: boolean }) {
       picker.current.setVisible(true);
     } catch (e) {
       if (!mounted.current) return;
-      setError(e instanceof Error ? e.message : "Google Picker could not open. Please try again.");
+      setError(presentError(e, {
+        fallback: "Google Picker could not open. Please try again.",
+        authentication: "Please sign in again to choose template files.",
+      }));
       setBusy(false);
     }
   }

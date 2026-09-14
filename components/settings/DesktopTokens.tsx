@@ -5,6 +5,7 @@ import { createDesktopToken, revokeDesktopToken } from "@/app/actions/desktop-to
 import {
   Card, CardTitle, Badge, SectionHeading, buttonStyle, fieldStyle, labelStyle,
 } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export interface TokenRow {
   id: string;
@@ -40,7 +41,10 @@ export function DesktopTokens({ tokens }: { tokens: TokenRow[] }) {
       setCopied(false);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create that token.");
+      setError(presentError(err, {
+        fallback: "Couldn't create that token right now. Try again.",
+        authentication: "Please sign in again to create a desktop token.",
+      }));
     }
   }
 

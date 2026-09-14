@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Unavailable } from "@/components/ui/Unavailable";
 import { createScheduledSession, markScheduledSession, pushSchedulingDraft } from "@/app/actions/scheduling";
 import type { ScheduledSession } from "@/lib/scheduling/no-show";
+import { presentError } from "@/lib/errors/presentation";
 import {
   Card, CardTitle, Badge, EmptyState, buttonStyle, fieldStyle, labelStyle, proseStyle,
 } from "@/components/ui/primitives";
@@ -34,7 +35,7 @@ export function SessionList({ clients, sessions, drafts, nowIso, unavailable = {
     setError(null); setNote(null); setBusyKey(key);
     startTransition(async () => {
       try { await fn(); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      catch (e) { setError(presentError(e, { fallback: "Couldn't update scheduling right now. Try again." })); }
       finally { setBusyKey(null); }
     });
   }

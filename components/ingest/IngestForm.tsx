@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { ingestTranscript } from "@/app/actions/ingest";
 import type { ClientContact } from "@/lib/db/queries";
 import { Card, buttonStyle, fieldStyle, labelStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 /**
  * Two ways in, one at a time. Showing a textarea and a file input together implied both
@@ -65,7 +66,10 @@ export function IngestForm({ clients }: { clients: ClientContact[] }) {
         setError(null);
         startTransition(async () => {
           try { await ingestTranscript(fd); }
-          catch (e) { setError(e instanceof Error ? e.message : "Something went wrong."); }
+          catch (e) { setError(presentError(e, {
+            fallback: "Couldn't add this conversation right now. Try again.",
+            authentication: "Please sign in again to add a conversation.",
+          })); }
         });
       }}
     >

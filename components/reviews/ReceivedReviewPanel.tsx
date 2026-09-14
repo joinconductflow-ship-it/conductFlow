@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Unavailable } from "@/components/ui/Unavailable";
 import { markReviewStatus, submitReview } from "@/app/actions/reviews";
 import { Card, CardTitle, EmptyState, buttonStyle, proseStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export interface ReceivedReviewPanelProps {
   unavailable?: boolean;
@@ -34,7 +35,7 @@ export function ReceivedReviewPanel({ reviews, unavailable }: ReceivedReviewPane
     setError(null); setBusyKey(key);
     startTransition(async () => {
       try { await fn(); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      catch (e) { setError(presentError(e, { fallback: "Couldn't update this review right now. Try again." })); }
       finally { setBusyKey(null); }
     });
   }

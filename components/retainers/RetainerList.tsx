@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Unavailable } from "@/components/ui/Unavailable";
 import { createRetainer, logUsage, pushRetainerDraft } from "@/app/actions/retainers";
 import type { Retainer } from "@/lib/retainers/ledger";
+import { presentError } from "@/lib/errors/presentation";
 import {
   Card, CardTitle, Badge, EmptyState, buttonStyle, fieldStyle, labelStyle, proseStyle,
 } from "@/components/ui/primitives";
@@ -26,7 +27,7 @@ export function RetainerList({ clients, retainers, drafts, unavailable = {} }: R
     setError(null); setNote(null); setBusyKey(key);
     startTransition(async () => {
       try { await fn(); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      catch (e) { setError(presentError(e, { fallback: "Couldn't update this retainer right now. Try again." })); }
       finally { setBusyKey(null); }
     });
   }

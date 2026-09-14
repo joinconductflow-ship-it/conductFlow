@@ -121,6 +121,23 @@ describe("getAccessToken", () => {
     expect(data!.last_error).toMatch(/invalid_grant/);
   });
 
+  it("marks a key-mismatched credential as reconnect-required", async () => {
+    const id = await connect();
+    const original = process.env.DATA_SOURCE_KEK;
+    process.env.DATA_SOURCE_KEK = randomBytes(32).toString("base64");
+    try {
+      await expect(getAccessToken(db, orgA, DRIVE, {
+        fetchImpl: respondingWith({ access_token: "should-not-be-called", expires_in: 3600 }),
+      })).rejects.toMatchObject({ reason: "reconnect" });
+      const { data } = await db.from("connected_data_source").select("state,last_error")
+        .eq("id", id).single();
+      expect(data!.state).toBe("error");
+      expect(data!.last_error).toBe("credential_decryption_failed");
+    } finally {
+      process.env.DATA_SOURCE_KEK = original;
+    }
+  });
+
   it("audits every token use", async () => {
     const id = await connect();
     await getAccessToken(db, orgA, DRIVE, {

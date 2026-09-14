@@ -5,8 +5,11 @@ import { getCurrentOrgId, listClients } from "@/lib/db/queries";
 import { getServerClient } from "@/lib/db/server";
 import { readPageData, readPageQuery } from "@/lib/db/page-read";
 import { Unavailable } from "@/components/ui/Unavailable";
+import { presentErrorText } from "@/lib/errors/presentation";
 import { CAPABILITIES, type Capability } from "@/lib/google/scopes";
 import { ConnectionList } from "@/components/settings/ConnectionList";
+import { connectionHealth } from "@/lib/integrations/health-server";
+import { type IntegrationHealth } from "@/lib/integrations/health";
 import {
   PageHeader, Card, CardTitle, EmptyState, SectionHeading, buttonStyle, pageStyle,
 } from "@/components/ui/primitives";
@@ -15,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export interface ConnectionRow {
   id: string; provider: string; account_email: string; scopes: string[];
-  state: string; created_at: string;
+  state: string; created_at: string; updated_at: string;
 }
 
 /** Wider than a form, narrower than the queue: these are cards you read one at a time. */
@@ -24,6 +27,11 @@ const column: React.CSSProperties = { maxWidth: 720 };
 export default async function SettingsPage({ searchParams }:
   { searchParams: Promise<{ error?: string; connected?: string }> }) {
   const { error, connected } = await searchParams;
+  const safeError = presentErrorText(error, {
+    fallback: "Couldn't complete that connection. Try again.",
+    authentication: "Please sign in again before changing connections.",
+    provider: "Couldn't complete that connection. Try again, or reconnect it.",
+  });
   const orgId = await getCurrentOrgId("/settings");
   if (!orgId) return (
     <main style={pageStyle}>
@@ -40,10 +48,14 @@ export default async function SettingsPage({ searchParams }:
   // granted to service_role alone.
   const db = await getServerClient();
   const connections = await readPageQuery("/settings: connected_data_source_public", () => db.from("connected_data_source_public")
-    .select("id,provider,account_email,scopes,state,created_at").eq("org_id", orgId));
-  const rows = (connections.data ?? []) as ConnectionRow[];
+    .select("id,provider,account_email,scopes,state,created_at,updated_at").eq("org_id", orgId));
+  const verifiedHealth = await readPageData<Record<string, IntegrationHealth>>("/settings: credential health", () =>
+    connections.unavailable || !connections.data?.length ? Promise.resolve({}) : connectionHealth(orgId));
+  const rows = ((connections.data ?? []) as ConnectionRow[]).map((row) => ({ ...row,
+    health: verifiedHealth.data?.[row.id] ?? "connection_issue" as const,
+  }));
   const googleRows = rows.filter((row) => row.provider === "google");
-  const slackRows = rows.filter((row) => row.provider === "slack" && row.state === "active");
+  const slackRows = rows.filter((row) => row.provider === "slack");
   const [clients, mappings] = await Promise.all([
     readPageData("/settings: clients", () => slackRows.length ? listClients(orgId) : Promise.resolve([])),
     readPageData("/settings: Slack mappings", () => slackRows.length ? listChannelMappings(orgId) : Promise.resolve([])),
@@ -61,29 +73,28 @@ export default async function SettingsPage({ searchParams }:
       <div style={column}>
       <PageHeader
         title="Settings"
-        lede="Connect Google capabilities and map Slack channels to your clients."
+        lede="Manage Google Workspace and map Slack channels to your clients."
       />
 
       {connected && (
         <Card tone="ok" style={{ marginBottom: "var(--space-4)" }}>
           <CardTitle tone="ok" dot>Account connected</CardTitle>
           <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
-            The capability you approved is live. Only the scopes Google actually granted are
-            stored — you can see them below.
+            OAuth completed. Check connection health and enabled capabilities below.
           </p>
         </Card>
       )}
-      {error && (
+      {safeError && (
         <Card tone="danger" style={{ marginBottom: "var(--space-4)" }}>
           <CardTitle tone="danger" dot>Connection failed</CardTitle>
           <p className="mono" style={{ color: "var(--muted)", fontSize: "var(--text-sm)",
             marginTop: "var(--space-2)", wordBreak: "break-word" }}>
-            {error}
+            {safeError}
           </p>
         </Card>
       )}
 
-      <SectionHeading>Google capabilities</SectionHeading>
+      <SectionHeading>Integrations</SectionHeading>
       {connections.unavailable ? <Unavailable section="Google connections are" /> : <ConnectionList capabilities={capabilities} connections={googleRows} />}
 
       <div style={{ marginTop: "var(--space-7)" }}>

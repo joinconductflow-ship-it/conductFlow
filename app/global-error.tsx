@@ -7,8 +7,11 @@ import { useEffect } from "react";
  * itself, and an import that is what failed cannot be part of the page that reports it.
  * Styles are inlined and minimal for the same reason — globals.css may never have loaded.
  */
-export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
-  useEffect(() => { console.error(`[conductflow] global: ${error.message}`); }, [error]);
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    // The server retains the full exception. The browser only needs a correlation digest.
+    console.error("[conductflow] global failure", error.digest ? { digest: error.digest } : undefined);
+  }, [error.digest]);
   return (
     <html lang="en">
       <body style={{ margin: 0, fontFamily: "system-ui, sans-serif" }}>

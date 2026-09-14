@@ -4,6 +4,7 @@ import { getCurrentOrgId, getCurrentUser } from "@/lib/db/queries";
 import { requireEnv } from "@/lib/env";
 import { siteOrigin } from "@/lib/http/site-origin";
 import { SLACK_CAPABILITIES } from "@/lib/slack/scopes";
+import { logFailure } from "@/lib/observability/log";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function GET() {
     });
     return response;
   } catch (e) {
-    const reason = e instanceof Error ? e.message : "slack_connect_failed";
-    return NextResponse.redirect(new URL(`/settings?error=${encodeURIComponent(reason)}`, origin));
+    logFailure("Slack connect start", e);
+    return NextResponse.redirect(new URL("/settings?error=slack_connect_failed", origin));
   }
 }

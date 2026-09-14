@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GenerationFailure } from "@/lib/agent/generate";
 import { presentDraftFailure } from "@/lib/drafts/failure";
+import { DataSourceUnavailable } from "@/lib/google/tokens";
 
 function generationFailure(retryable: boolean): GenerationFailure {
   return new GenerationFailure({
@@ -33,6 +34,14 @@ describe("presentDraftFailure", () => {
   it("uses a generic message for a non-retryable generation failure", () => {
     expect(presentDraftFailure(generationFailure(false))).toEqual({
       message: "AI drafting failed. Try again shortly.",
+      rateLimited: false,
+    });
+  });
+
+  it("requires reconnecting Google after credential decryption failure", () => {
+    expect(presentDraftFailure(new DataSourceUnavailable("private detail", "reconnect"))).toEqual({
+      message: "Google needs to be reconnected before ConductFlow can write drafts.",
+      reconnectRequired: true,
       rateLimited: false,
     });
   });

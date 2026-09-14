@@ -3,6 +3,8 @@ import { getServiceClient } from "@/lib/db/service";
 import { resolveToken, touchToken } from "@/lib/auth/desktop-token";
 import { extractCommitments } from "@/lib/agent/extract";
 import { MAX_TRANSCRIPT_CHARS } from "@/lib/agent/schema";
+import { logFailure } from "@/lib/observability/log";
+import { presentError } from "@/lib/errors/presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +81,10 @@ export async function POST(request: Request) {
       dropped: result.dropped,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "extraction failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    logFailure("desktop capture extraction", { operation: "extract_commitments", error: err });
+    return NextResponse.json({ error: presentError(err, {
+      fallback: "Couldn't extract commitments right now. Try again.",
+      provider: "Commitment extraction is temporarily unavailable. Try again.",
+    }) }, { status: 502 });
   }
 }

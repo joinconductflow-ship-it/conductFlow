@@ -1,9 +1,11 @@
 import { GenerationFailure } from "@/lib/agent/generate";
+import { DataSourceUnavailable } from "@/lib/google/tokens";
 
 export interface RegenerateDraftResult {
   ok: boolean;
   message?: string;
   rateLimited?: boolean;
+  reconnectRequired?: boolean;
 }
 
 // The only non-generation errors safe to show a user: application-authored messages that
@@ -31,6 +33,13 @@ export function presentDraftFailure(error: unknown): Omit<RegenerateDraftResult,
       };
     }
     return { message: "AI drafting failed. Try again shortly.", rateLimited: false };
+  }
+  if (error instanceof DataSourceUnavailable && error.reason === "reconnect") {
+    return {
+      message: "Google needs to be reconnected before ConductFlow can write drafts.",
+      reconnectRequired: true,
+      rateLimited: false,
+    };
   }
   if (isKnownSafeAppError(error)) return { message: error.message, rateLimited: false };
   return { message: "The draft could not be written. Please try again.", rateLimited: false };

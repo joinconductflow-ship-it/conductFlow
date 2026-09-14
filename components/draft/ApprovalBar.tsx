@@ -12,6 +12,7 @@ import {
   type ReadinessSnapshot,
 } from "@/lib/approvals/action-readiness";
 import { buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 import type {
   ActionInputData,
   CommitmentActionSuggestion,
@@ -279,8 +280,10 @@ export function ApprovalBar({ commitmentId, actions, hasDraftContent }: {
         }
         router.refresh();
       } catch (cause) {
-        setMessage({ kind: "error", text: cause instanceof Error
-          ? cause.message : "Something went wrong. Please try again." });
+        setMessage({ kind: "error", text: presentError(cause, {
+          fallback: "Something went wrong. Please try again.",
+          authentication: "Please sign in again to approve this action.",
+        }) });
       }
     });
   }
@@ -294,8 +297,10 @@ export function ApprovalBar({ commitmentId, actions, hasDraftContent }: {
         router.push("/queue");
         router.refresh();
       } catch (cause) {
-        setMessage({ kind: "error", text: cause instanceof Error
-          ? cause.message : "Something went wrong. Please try again." });
+        setMessage({ kind: "error", text: presentError(cause, {
+          fallback: "Something went wrong. Please try again.",
+          authentication: "Please sign in again to reject this commitment.",
+        }) });
       }
     });
   }
@@ -347,7 +352,12 @@ export function ApprovalBar({ commitmentId, actions, hasDraftContent }: {
                 fontSize: "var(--text-xs)", lineHeight: 1.35 }}>{action.rationale}</span>
               {action.last_error && ["failed", "blocked", "reconnect_google"].includes(action.execution_state ?? "") &&
                 <span style={{ display: "block", marginTop: 4, color: "var(--danger-text)",
-                  fontSize: "var(--text-xs)" }}>{action.last_error}</span>}
+                  fontSize: "var(--text-xs)" }}>
+                  {presentError(action.last_error, {
+                    fallback: "This action did not complete. Try again.",
+                    provider: "The connected provider could not complete this action. Try again or reconnect it.",
+                  })}
+                </span>}
             </div>
             <div style={{ textAlign: "right" }}>
               <span className="mono detected-action-state" style={{ color: toneForStatus(status),

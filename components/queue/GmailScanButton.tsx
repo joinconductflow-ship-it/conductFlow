@@ -4,8 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { scanGmailNow } from "@/app/actions/gmail-watch";
 import { buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 function summarize(result: Awaited<ReturnType<typeof scanGmailNow>>): string {
+  if (result.reconnectRequired) {
+    return "Gmail needs to be reconnected before ConductFlow can scan mail. Reconnect Google in Settings.";
+  }
   if (result.connectionsScanned === 0) {
     return "Gmail isn't connected for watching yet — turn it on in Settings.";
   }
@@ -41,7 +45,10 @@ export function GmailScanButton() {
         setNote(summarize(result));
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "That didn't work.");
+        setError(presentError(e, {
+          fallback: "Couldn't scan Gmail right now. Try again.",
+          authentication: "Please sign in again to scan Gmail.",
+        }));
       }
     });
   }

@@ -112,6 +112,12 @@ async function finishIngest(
     }, model);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    logFailure("finishIngest.extraction", {
+      operation: "extract_commitments",
+      orgId: ctx.orgId,
+      transcriptId: ctx.transcriptId,
+      error: e,
+    });
     const { error: markError } = await db.from("transcript").update({
       extraction_status: "failed", extraction_error: message,
     }).eq("id", ctx.transcriptId);
@@ -127,6 +133,12 @@ async function finishIngest(
     return await finishIngestAfterExtraction(db, ctx, extracted, model);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    logFailure("finishIngest.afterExtraction", {
+      operation: "persist_extraction_results",
+      orgId: ctx.orgId,
+      transcriptId: ctx.transcriptId,
+      error: e,
+    });
     const { error: markError } = await db.from("transcript").update({
       extraction_status: "failed", extraction_error: message,
     }).eq("id", ctx.transcriptId);

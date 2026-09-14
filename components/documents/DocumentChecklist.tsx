@@ -8,6 +8,7 @@ import {
 import {
   Card, CardTitle, Badge, EmptyState, buttonStyle, fieldStyle, labelStyle, proseStyle,
 } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export interface DocumentChecklistProps {
   unavailable?: Partial<Record<"clients" | "requirements" | "documents" | "drafts", boolean>>;
@@ -28,7 +29,7 @@ export function DocumentChecklist({ clients, requirements, documents, drafts, un
     setError(null); setNote(null); setBusyKey(key);
     startTransition(async () => {
       try { await fn(); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      catch (e) { setError(presentError(e, { fallback: "Couldn't update document tracking right now. Try again." })); }
       finally { setBusyKey(null); }
     });
   }

@@ -1,7 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { openRefreshToken } from "@/lib/google/vault";
+import { CredentialDecryptionError, openRefreshToken } from "@/lib/google/vault";
+import { DataSourceUnavailable } from "@/lib/google/tokens";
+import { logFailure } from "@/lib/observability/log";
 
 interface SlackResponse { ok: boolean; error?: string; response_metadata?: { next_cursor?: string }; }
+
+export class SlackApiError extends Error {
+  readonly reconnectRequired: boolean;
+  constructor(readonly code: string, readonly status: number) {
+    super(`Slack API: ${code} (${status}).`);
+    this.name = "SlackApiError";
+    this.reconnectRequired = ["invalid_auth", "not_authed", "token_revoked", "token_expired", "account_inactive", "missing_scope"].includes(code)
+      || status === 401;
+  }
+}
 export interface SlackChannel { id: string; name: string; is_private?: boolean; is_member?: boolean; }
 export interface SlackMessage {
   ts: string; text?: string; user?: string; username?: string; bot_profile?: { name?: string };
@@ -13,9 +25,9 @@ export async function slackApi<T>(token: string, method: string, params: Record<
     body: new URLSearchParams(params), cache: "no-store", signal: AbortSignal.timeout(30_000),
   });
   if (response.status === 429) throw new Error(`Slack rate limited this scan. Retry after ${response.headers.get("retry-after") ?? "60"} seconds.`);
-  if (!response.ok) throw new Error(`Slack request failed (${response.status}).`);
+  if (!response.ok) throw new SlackApiError("http_error", response.status);
   const data = await response.json() as T & SlackResponse;
-  if (!data.ok) throw new Error(`Slack: ${data.error ?? "request_failed"}`);
+  if (!data.ok) throw new SlackApiError(data.error ?? "request_failed", response.status);
   return data;
 }
 
@@ -24,8 +36,41 @@ export async function slackToken(db: SupabaseClient, orgId: string, connectionId
     .select("external_account_id,token_sealed,dek_sealed").eq("id", connectionId)
     .eq("org_id", orgId).eq("provider", "slack").eq("state", "active").single();
   if (error || !data) throw new Error("Slack connection is unavailable.");
-  return openRefreshToken({ tokenSealed: data.token_sealed, dekSealed: data.dek_sealed },
-    `${orgId}:slack:${data.external_account_id}`);
+  try {
+    return openRefreshToken({ tokenSealed: data.token_sealed, dekSealed: data.dek_sealed },
+      `${orgId}:slack:${data.external_account_id}`);
+  } catch (cause) {
+    if (!(cause instanceof CredentialDecryptionError)) throw cause;
+    logFailure("Slack credential decrypt", {
+      provider: "slack",
+      operation: "decrypt_refresh_token",
+      orgId,
+      dataSourceId: connectionId,
+      error: cause,
+    });
+    const { error: updateError } = await db.from("connected_data_source")
+      .update({
+        state: "error",
+        last_error: "credential_decryption_failed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", connectionId)
+      .eq("org_id", orgId)
+      .eq("provider", "slack");
+    if (updateError) {
+      logFailure("Slack credential decrypt state update", {
+        provider: "slack",
+        operation: "mark_reconnect_required",
+        orgId,
+        dataSourceId: connectionId,
+        error: updateError,
+      });
+    }
+    throw new DataSourceUnavailable(
+      "Slack needs to be reconnected before ConductFlow can read channels.",
+      "reconnect",
+    );
+  }
 }
 
 export async function availableChannels(token: string): Promise<SlackChannel[]> {

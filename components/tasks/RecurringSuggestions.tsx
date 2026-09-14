@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { proposeRecurring } from "@/app/actions/proposals";
 import type { RecurringPattern } from "@/lib/ops/recurring";
 import { CardTitle, Badge, buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export function RecurringSuggestions({ patterns }: { patterns: RecurringPattern[] }) {
   const router = useRouter();
@@ -65,7 +66,7 @@ export function RecurringSuggestions({ patterns }: { patterns: RecurringPattern[
                         setAdded((a) => [...a, p.key]);
                         router.refresh();
                       } catch (e) {
-                        setError(e instanceof Error ? e.message : "Could not add that.");
+                        setError(presentError(e, { fallback: "Couldn't add that promise right now. Try again." }));
                       } finally { setAdding(null); }
                     });
                   }}

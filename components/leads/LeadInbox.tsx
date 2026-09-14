@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Unavailable } from "@/components/ui/Unavailable";
 import { submitInquiry, convertProspect, pushLeadReplyDraft } from "@/app/actions/leads";
+import { presentError } from "@/lib/errors/presentation";
 import {
   Card, CardTitle, Badge, EmptyState, buttonStyle, fieldStyle, labelStyle, proseStyle,
 } from "@/components/ui/primitives";
@@ -30,7 +31,7 @@ export function LeadInbox({ prospects, drafts, unavailable = {} }: LeadInboxProp
     setError(null); setNote(null); setBusyKey(key);
     startTransition(async () => {
       try { await fn(); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      catch (e) { setError(presentError(e, { fallback: "Couldn't update this lead right now. Try again." })); }
       finally { setBusyKey(null); }
     });
   }

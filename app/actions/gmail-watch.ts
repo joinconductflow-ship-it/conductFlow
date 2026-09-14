@@ -4,6 +4,8 @@ import { getServerClient } from "@/lib/db/server";
 import { getServiceClient } from "@/lib/db/service";
 import { getCurrentOrgId } from "@/lib/db/queries";
 import { scanGmail } from "@/lib/gmail/watch";
+import { logFailure } from "@/lib/observability/log";
+import { UserFacingError } from "@/lib/errors/presentation";
 
 /**
  * The manual half of "ConductFlow watches your Gmail" — the cron route
@@ -21,7 +23,13 @@ export async function scanGmailNow() {
   const orgId = await getCurrentOrgId();
   if (!orgId) throw new Error("Sign in to scan Gmail.");
 
-  const result = await scanGmail(getServiceClient(), { orgId });
+  let result;
+  try {
+    result = await scanGmail(getServiceClient(), { orgId });
+  } catch (error) {
+    logFailure("Gmail scan", { provider: "gmail", operation: "scan", orgId, error });
+    throw new UserFacingError("Couldn't scan Gmail right now. Try again.", "provider");
+  }
   revalidatePath("/queue");
   return result;
 }

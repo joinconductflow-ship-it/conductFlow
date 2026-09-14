@@ -21,6 +21,7 @@ import { createDriveClient } from "@/lib/google/drive";
 import { GoogleApiError } from "@/lib/google/api-error";
 import { logAudit } from "@/lib/audit/log";
 import { logFailure } from "@/lib/observability/log";
+import { presentError } from "@/lib/errors/presentation";
 import {
   runApprovedActionSelection,
   selectPersistedSuggestions,
@@ -171,7 +172,10 @@ async function executeClaimedAction(
       });
     }
     const state = executionFailureState(error);
-    const message = error instanceof Error ? error.message : "Action failed";
+    const message = presentError(error, {
+      fallback: "This action could not be completed. Try again.",
+      provider: "The connected provider could not complete this action. Try again or reconnect it.",
+    });
     await setActionState(db, suggestion, {
       execution_state: state,
       executing_at: null,
@@ -416,7 +420,10 @@ export async function approveDetectedActions(
         });
       }
       const state = executionFailureState(error);
-        const message = error instanceof Error ? error.message : "Calendar check failed";
+    const message = presentError(error, {
+      fallback: "Calendar availability could not be checked. Try again.",
+      provider: "Google Calendar could not be checked. Try again or reconnect Google.",
+    });
         await setActionState(service, action, { execution_state: state, last_error: message.slice(0, 500) });
         logFailure("approveDetectedActions.calendar_event.preflight", error);
         return resultFor(action, state, { error: message });
@@ -465,7 +472,7 @@ export async function approveDetectedActions(
       }
       const pushed = await pushApprovedDraft(commitmentId);
       if (!pushed.pushed || !pushed.providerDraftId) {
-        if (["missing", "revoked", "scope", "refused", "google_reconnect_required", "gmail_auth_rejected_retry"]
+        if (["missing", "revoked", "scope", "refused", "reconnect", "google_reconnect_required", "gmail_auth_rejected_retry"]
           .includes(pushed.reason ?? "")) throw new ReconnectGoogleError();
         throw new Error(pushed.reason ?? "Gmail draft creation failed");
       }

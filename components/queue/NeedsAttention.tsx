@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { retryExtraction } from "@/app/actions/ingest";
 import type { FailedTranscript } from "@/lib/db/queries";
 import { Card, CardTitle, buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export function NeedsAttention({ items }: { items: FailedTranscript[] }) {
   const router = useRouter();
@@ -32,7 +33,9 @@ export function NeedsAttention({ items }: { items: FailedTranscript[] }) {
                 <span className="mono" style={{ display: "block", color: "var(--faint)",
                   fontSize: "var(--text-xs)", marginTop: "var(--space-1)",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {t.extraction_error ?? "unknown error"}
+                  {presentError(t.extraction_error, {
+                    fallback: "Extraction failed. Retry to try again.",
+                  })}
                 </span>
               </span>
               <button
@@ -43,7 +46,10 @@ export function NeedsAttention({ items }: { items: FailedTranscript[] }) {
                   setRetrying(t.id);
                   startTransition(async () => {
                     try { await retryExtraction(t.id); router.refresh(); }
-                    catch (e) { setError(e instanceof Error ? e.message : "Retry failed."); }
+                    catch (e) { setError(presentError(e, {
+                      fallback: "Couldn't retry extraction. Try again.",
+                      authentication: "Please sign in again to retry extraction.",
+                    })); }
                   });
                 }}
                 // Fixed width so the label can change without the row reflowing.

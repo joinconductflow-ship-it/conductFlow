@@ -60,6 +60,6 @@ describe("GET /auth/signin", () => {
     state.signIn.mockResolvedValue({ data: { url: null }, error: new Error("Google is disabled") });
     const response = await GET(new Request("https://app.example/auth/signin?terms=accepted"));
     expect(response.headers.get("location"))
-      .toBe("https://app.example/onboarding?error=Google%20is%20disabled");
+      .toBe("https://app.example/onboarding?error=auth_start_failed");
   });
 });

@@ -11,6 +11,7 @@ import {
   runProposalDecision,
   type ProposalValues,
 } from "@/lib/copilot/schemas";
+import { presentError } from "@/lib/errors/presentation";
 
 // A stalled eligibility lookup must not leave the proposeAction interrupt unresolved.
 const CHECK_TIMEOUT_MS = 12_000;
@@ -226,12 +227,18 @@ function ProposalCardBody({ args, respond }: {
                 : {},
             );
           } catch (error) {
-            return { error: error instanceof Error ? error.message : "Approval failed." };
+            return { error: presentError(error, {
+              fallback: "Approval failed. Please try again.",
+              authentication: "Please sign in again to approve this action.",
+            }) };
           }
         },
       );
     } catch (error) {
-      result = { approved: false, error: error instanceof Error ? error.message : "Approval failed." };
+      result = { approved: false, error: presentError(error, {
+        fallback: "Approval failed. Please try again.",
+        authentication: "Please sign in again to approve this action.",
+      }) };
     }
     await resolveOnce(result);
   }

@@ -6,6 +6,7 @@ import { getServiceClient } from "@/lib/db/service";
 import { sealRefreshToken } from "@/lib/google/vault";
 import { requireEnv } from "@/lib/env";
 import { siteOrigin } from "@/lib/http/site-origin";
+import { logFailure } from "@/lib/observability/log";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
     if (error) throw new Error("slack_connection_save_failed");
     return redirect("/settings");
   } catch (e) {
-    return redirect(`/settings?error=${encodeURIComponent(e instanceof Error ? e.message : "slack_connect_failed")}`);
+    logFailure("Slack OAuth callback", e);
+    return redirect("/settings?error=slack_connect_failed");
   }
 }
