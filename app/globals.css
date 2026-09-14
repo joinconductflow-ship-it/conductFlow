@@ -569,6 +569,14 @@ p { margin: 0; }
 /* Numbers that get compared down a column must not jitter. */
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* Loading skeletons shaped like the content they precede (see app/(app)/queue/loading.tsx)
+   rather than a spinner, so the layout doesn't jump once real content lands. */
+@keyframes cf-skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.cf-skeleton { animation: cf-skeleton-pulse 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cf-skeleton { animation: none; opacity: 0.7; }
+}
+
 /* Copilot Approve/Reject buttons carry their color as inline styles, so :hover can't be
    expressed there — one shared class covers both kinds. Approve has a solid background,
    so brightness reads fine; Reject/Cancel/Dismiss are transparent, so brightness alone
