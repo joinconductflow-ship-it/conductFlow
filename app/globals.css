@@ -607,6 +607,14 @@ button:hover:not(:disabled),
   --btn-border: var(--border-loud);
 }
 
+/* A pressed control should feel pressed. One rule, every button and button-styled
+   anchor in the app, since both already read the same buttonStyle() variables. */
+button:not(:disabled), .cf-btn { transition: transform var(--motion), background var(--motion), color var(--motion), border-color var(--motion); }
+button:active:not(:disabled), .cf-btn:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled), .cf-btn:active { transform: none; }
+}
+
 ::placeholder { color: var(--faint); }
 
 ::selection { background: var(--accent-quiet); }
