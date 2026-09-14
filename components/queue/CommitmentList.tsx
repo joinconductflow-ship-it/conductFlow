@@ -98,7 +98,10 @@ function CommitmentRows({ items, nowMs }: { items: Commitment[]; nowMs: number }
         const risk = riskOf(c, nowMs);
         const due = dateKey(c.deadline);
         return (
-          <li key={c.id} style={{ borderTop: i === 0 ? "none" : "1px solid var(--border)" }}>
+          <li key={c.id} className="queue-row-enter" style={{
+            borderTop: i === 0 ? "none" : "1px solid var(--border)",
+            animationDelay: `${Math.min(i, 8) * 24}ms`,
+          }}>
             <Link href={`/queue/${c.id}`} className="cf-row queue-commitment-row" style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               gap: "var(--space-4)", color: "var(--text)",
@@ -196,7 +199,7 @@ export function CommitmentList({ items, nowIso = new Date().toISOString() }: {
           </div>
 
           {visible.length === 0 ? (
-            <p className="queue-filter-empty" role="status">No commitments in this view.</p>
+            <p className="queue-filter-empty cf-empty-state" role="status">No commitments in this view.</p>
           ) : (
             <div className="queue-commitment-groups">
               {groups.map((group) => (

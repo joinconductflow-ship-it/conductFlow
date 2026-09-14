@@ -673,6 +673,14 @@ button:active:not(:disabled), .cf-btn:active { transform: scale(0.97); }
 .cf-row:hover { background: var(--surface-hover); }
 .cf-row:hover .cf-row-go { opacity: 1; transform: translateX(2px); }
 
+/* First screenful of rows arrives with a light stagger rather than all at once; capped
+   at 8 rows of delay (see the Math.min in CommitmentList) so a long list never reads as
+   sluggish while scrolling further down it. */
+.queue-row-enter { animation: cf-empty-state-in 200ms cubic-bezier(0.2, 0, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .queue-row-enter { animation: none; }
+}
+
 /* Present to the keyboard, out of the way of everyone else, until it is focused. */
 .queue-sync-row {
   display: grid;
