@@ -197,12 +197,18 @@ export function buttonStyle(variant: ButtonVariant = "secondary", disabled = fal
  * Empty states carry the next action, not an apology. A screen with nothing on it is the
  * first thing a new customer sees, and "No data" teaches them nothing.
  */
-export function EmptyState({ title, body, action }: {
-  title: string; body: string; action?: ReactNode;
+export function EmptyState({ title, body, action, icon }: {
+  title: string; body: string; action?: ReactNode; icon?: ReactNode;
 }) {
+  // A pure-CSS fade (see .cf-empty-state in globals.css) rather than framer-motion: this
+  // component renders inside Server Components across the app, and motion.div would force
+  // every one of those pages into the client bundle just to animate an empty box.
   return (
-    <div style={{ border: "1px dashed var(--border-strong)", borderRadius: "var(--radius)",
-      padding: "var(--space-7) var(--space-5)", textAlign: "center" }}>
+    <div className="cf-empty-state" style={{ border: "1px dashed var(--border-strong)",
+      borderRadius: "var(--radius)", padding: "var(--space-7) var(--space-5)",
+      textAlign: "center" }}>
+      {icon && <div style={{ marginBottom: "var(--space-3)", display: "flex",
+        justifyContent: "center", color: "var(--faint)" }}>{icon}</div>}
       <div style={{ fontSize: "var(--text-md)", fontWeight: 600,
         letterSpacing: "-0.01em" }}>{title}</div>
       <p style={{ color: "var(--muted)", marginTop: "var(--space-2)", lineHeight: 1.55,
