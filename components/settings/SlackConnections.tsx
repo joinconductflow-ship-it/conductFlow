@@ -72,7 +72,11 @@ export function SlackConnections({ orgId, connections, clients, mappings }: Prop
     <Card style={{ borderLeft: health === "connected" ? "2px solid var(--ok)" : connections.length ? "2px solid var(--warn)" : "2px solid var(--border-strong)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap" }}>
         <CardTitle>{SLACK_CAPABILITIES.slack_watch.label}</CardTitle>
-        <Badge tone={health === "connected" ? "ok" : health === "not_connected" ? "neutral" : "warn"}>{HEALTH_LABEL[health]}</Badge>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+          <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+            background: `var(--${health === "connected" ? "ok" : health === "not_connected" ? "border-strong" : "warn"})` }} />
+          <Badge tone={health === "connected" ? "ok" : health === "not_connected" ? "neutral" : "warn"}>{HEALTH_LABEL[health]}</Badge>
+        </span>
       </div>
       <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>{SLACK_CAPABILITIES.slack_watch.detail}</p>
       {connections.length > 0 && <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>Workspace: {connections.map((connection) => connection.account_email).join(" · ")}</p>}
@@ -132,8 +136,8 @@ export function SlackConnections({ orgId, connections, clients, mappings }: Prop
           </li>)}
         </ul>
         {!mappings.length && <p style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>No channels mapped yet.</p>}
-      {(error || health === "connection_issue") && <p role="alert" style={{ color: "var(--danger-text)", marginTop: "var(--space-3)" }}>{error ?? slackHealthMessage(health)}</p>}
-      {note && <p role="status" style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>{note}</p>}
+      {(error || health === "connection_issue") && <p role="alert" className="cf-empty-state" style={{ color: "var(--danger-text)", marginTop: "var(--space-3)" }}>{error ?? slackHealthMessage(health)}</p>}
+      {note && <p role="status" className="cf-empty-state" style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>{note}</p>}
     </Card>
   );
 }
