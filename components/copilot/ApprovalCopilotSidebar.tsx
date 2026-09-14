@@ -45,8 +45,15 @@ function actionButton(kind: "approve" | "reject"): CSSProperties {
     cursor: "pointer",
     fontSize: 13,
     fontWeight: 600,
+    transition: "filter 120ms ease, background 120ms ease",
   };
 }
+
+/* Inline styles can't express :hover, and this file intentionally avoids adding a
+   client-only motion dependency to a card that's already deliberate about staying
+   simple (see the architecture comments above) — a filter-based hover covers both
+   button kinds with one rule. */
+const actionButtonClass = "cf-copilot-action";
 
 type ProposalArgs = z.infer<typeof proposeActionParameters>;
 
@@ -248,7 +255,7 @@ function ProposalCardBody({ args, respond }: {
     return <div style={cardStyle}>
       <span style={labelStyle}>Checking the commitment…</span>
       <div style={buttonRowStyle}>
-        <button style={actionButton("reject")} onClick={() => dismissIneligible()}>Cancel</button>
+        <button className={actionButtonClass} data-kind="reject" style={actionButton("reject")} onClick={() => dismissIneligible()}>Cancel</button>
       </div>
     </div>;
   }
@@ -264,7 +271,7 @@ function ProposalCardBody({ args, respond }: {
       </p>
       {state === "pending"
         ? <div style={buttonRowStyle}>
-          <button style={actionButton("reject")} onClick={dismissIneligible}>Dismiss</button>
+          <button className={actionButtonClass} data-kind="reject" style={actionButton("reject")} onClick={dismissIneligible}>Dismiss</button>
         </div>
         : <span style={labelStyle}>Dismissed.</span>}
     </div>;
@@ -308,8 +315,8 @@ function ProposalCardBody({ args, respond }: {
     )}
     {state === "pending" ? (
       <div style={buttonRowStyle}>
-        <button style={actionButton("approve")} onClick={() => decide(true)}>Approve</button>
-        <button style={actionButton("reject")} onClick={() => decide(false)}>Reject</button>
+        <button className={actionButtonClass} data-kind="approve" style={actionButton("approve")} onClick={() => decide(true)}>Approve</button>
+        <button className={actionButtonClass} data-kind="reject" style={actionButton("reject")} onClick={() => decide(false)}>Reject</button>
       </div>
     ) : (
       <span style={labelStyle}>Sent.</span>

@@ -569,6 +569,15 @@ p { margin: 0; }
 /* Numbers that get compared down a column must not jitter. */
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* Copilot Approve/Reject buttons carry their color as inline styles, so :hover can't be
+   expressed there — one shared class covers both kinds. Approve has a solid background,
+   so brightness reads fine; Reject/Cancel/Dismiss are transparent, so brightness alone
+   would be invisible, hence the explicit background-color override for that variant. */
+.cf-copilot-action:hover:not(:disabled) { filter: brightness(0.92); }
+.cf-copilot-action[data-kind="reject"]:hover:not(:disabled) {
+  background-color: var(--raised-hover) !important;
+}
+
 /* Shared by EmptyState and Unavailable: a quiet arrival rather than a pop-in, and pure
    CSS so it works from a Server Component with no client bundle cost. */
 @keyframes cf-empty-state-in {
