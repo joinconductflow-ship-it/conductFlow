@@ -3,7 +3,9 @@ import { revalidatePath } from "next/cache";
 import { getCurrentOrgId } from "@/lib/db/queries";
 import { getServerClient } from "@/lib/db/server";
 import { getServiceClient } from "@/lib/db/service";
-import { availableChannels, slackApi, slackToken } from "@/lib/slack/client";
+import { availableChannels, slackApi, slackToken, type SlackChannel } from "@/lib/slack/client";
+import { logFailure } from "@/lib/observability/log";
+import { failureHealth, slackHealthMessage, storedHealth, type IntegrationHealth } from "@/lib/integrations/health";
 
 export interface ChannelMapping {
   id: string; connected_data_source_id: string; channel_id: string; channel_name: string;
@@ -27,17 +29,57 @@ export async function listChannelMappings(requestedOrgId: string): Promise<Chann
   return (data ?? []) as ChannelMapping[];
 }
 
-export async function listSlackChannels(requestedOrgId: string) {
+export interface SlackChannelsResult {
+  channels: (SlackChannel & { connectedDataSourceId: string; teamName: string })[];
+  health: IntegrationHealth;
+  message: string | null;
+}
+
+export async function listSlackChannels(requestedOrgId: string): Promise<SlackChannelsResult> {
   const orgId = await currentOrg(requestedOrgId);
-  const db = getServiceClient();
-  const { data, error } = await db.from("connected_data_source").select("id,account_email")
-    .eq("org_id", orgId).eq("provider", "slack").eq("state", "active");
-  if (error) throw error;
-  const channels = await Promise.all((data ?? []).map(async (connection) =>
-    (await availableChannels(await slackToken(db, orgId, connection.id))).map((channel) => ({
-      ...channel, connectedDataSourceId: connection.id, teamName: connection.account_email,
-    }))));
-  return channels.flat();
+  try {
+    const db = getServiceClient();
+    const { data, error } = await db.from("connected_data_source").select("id,account_email,state,last_error")
+      .eq("org_id", orgId).eq("provider", "slack");
+    if (error) throw error;
+    if (!data?.length) return { channels: [], health: "not_connected", message: null };
+    const channels: SlackChannelsResult["channels"] = [];
+    let health: IntegrationHealth = "connected";
+    for (const connection of data) {
+      if (connection.state !== "active") {
+        const saved = storedHealth(connection);
+        if (saved === "needs_reconnect" || health !== "needs_reconnect") health = saved;
+        continue;
+      }
+      try {
+        const items = await availableChannels(await slackToken(db, orgId, connection.id));
+        channels.push(...items.map((channel) => ({ ...channel,
+          connectedDataSourceId: connection.id, teamName: connection.account_email,
+        })));
+      } catch (cause) {
+        const failed = failureHealth(cause);
+        if (failed === "needs_reconnect" || health !== "needs_reconnect") health = failed;
+        logFailure("Slack channels load", { provider: "slack", operation: "conversations.list",
+          orgId, dataSourceId: connection.id, error: cause });
+        if (failed === "needs_reconnect") {
+          const { error: updateError } = await db.from("connected_data_source").update({
+            state: "error", last_error: "reconnect_required", updated_at: new Date().toISOString(),
+          }).eq("id", connection.id).eq("org_id", orgId).eq("provider", "slack").eq("state", "active");
+          if (updateError) logFailure("Slack connection health update", { orgId, dataSourceId: connection.id, error: updateError });
+        }
+      }
+    }
+    return { channels, health, message: slackHealthMessage(health) };
+  } catch (error) {
+    logFailure("Slack channels load", {
+      provider: "slack",
+      operation: "conversations.list",
+      orgId,
+      error,
+    });
+    const health = failureHealth(error);
+    return { channels: [], health, message: slackHealthMessage(health) };
+  }
 }
 
 /** Saving an already-mapped channel changes its client, preserving the scan checkpoint. */

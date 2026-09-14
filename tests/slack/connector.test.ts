@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { availableChannels, channelHistory, senderLookup, slackApi } from "@/lib/slack/client";
+import { availableChannels, channelHistory, senderLookup, slackApi, slackToken } from "@/lib/slack/client";
 import { scanSlack } from "@/lib/slack/watch";
 import { runIngest } from "@/lib/ingest/run";
 import { sealRefreshToken } from "@/lib/google/vault";
+import { DataSourceUnavailable } from "@/lib/google/tokens";
 
 vi.mock("@/lib/ingest/run", () => ({ runIngest: vi.fn() }));
 vi.mock("@/lib/observability/log", () => ({ logFailure: vi.fn() }));
@@ -91,8 +92,21 @@ function fixture() {
   fetchMock.mockImplementation(async (url: string) => url.endsWith("users.info")
     ? json({ ok: true, user: { profile: { display_name: "Priya" } } })
     : json({ ok: true, messages: [{ ts: messageTime, user: "U1", text: "I will deliver the report tomorrow." }] }));
-  return { db, mapping };
+  return { db, mapping, tables };
 }
+
+describe("Slack credential state", () => {
+  it("marks a key-mismatched credential as reconnect-required", async () => {
+    const { db, tables } = fixture();
+    vi.stubEnv("DATA_SOURCE_KEK", Buffer.alloc(32, 8).toString("base64"));
+
+    await expect(slackToken(db, "org", "connection")).rejects.toMatchObject({
+      reason: "reconnect",
+    } satisfies Partial<DataSourceUnavailable>);
+    expect(tables.connected_data_source[0].state).toBe("error");
+    expect(tables.connected_data_source[0].last_error).toBe("credential_decryption_failed");
+  });
+});
 
 describe("Slack scan", () => {
   it("ingests directly for the mapped client and checkpoints successful scans", async () => {

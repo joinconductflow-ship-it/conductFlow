@@ -51,9 +51,12 @@ const baseValues: ProposalValues = {
   documentDetails: "",
 };
 
-function readinessFor(payload: CopilotApprovalPayload) {
+function readinessFor(
+  payload: CopilotApprovalPayload,
+  action: CommitmentActionSuggestion = suggestion,
+) {
   return actionReadiness(
-    suggestion, context, payload.inputData, payload.reviewerEditedFields, payload.clearedFields,
+    action, context, payload.inputData, payload.reviewerEditedFields, payload.clearedFields,
   );
 }
 
@@ -70,6 +73,48 @@ describe("Copilot proposal transport", () => {
     expect(payload.reviewerEditedFields).toEqual(["start_time"]);
     expect(readinessFor(payload).data.start_time).toBe("17:00");
     expect(result).toEqual({ approved: true, execution: { actions: [], complete: true } });
+  });
+
+  it("A2. makes a server-resolved relative Calendar proposal actionable", async () => {
+    const canonical = {
+      ...suggestion,
+      input_data: {
+        date: "2026-09-15",
+        start_time: "16:00",
+        duration_minutes: 30,
+        relative_date: true,
+      },
+    };
+    const unconfirmed = buildCopilotApprovalPayload(identity, {
+      ...baseValues,
+      durationMinutes: "30",
+    }, [], []);
+    expect(readinessFor(unconfirmed, canonical).missing)
+      .toEqual(["relative_date_confirmation"]);
+
+    const execute = vi.fn(async (payload: CopilotApprovalPayload) => {
+      const readiness = readinessFor(payload, canonical);
+      expect(readiness.missing).toEqual([]);
+      expect(readiness.ready).toBe(true);
+      return { actions: [{ id: payload.actionId, type: "calendar_event", state: "created" }], complete: true };
+    });
+
+    await runProposalDecision(
+      true,
+      identity,
+      { ...baseValues, durationMinutes: "30", relativeDateConfirmed: true },
+      [],
+      [],
+      execute,
+    );
+
+    const payload = execute.mock.calls[0][0] as CopilotApprovalPayload;
+    expect(payload.inputData).toMatchObject({
+      date: "2026-09-15",
+      start_time: "16:00",
+      duration_minutes: 30,
+      relative_date_confirmed: true,
+    });
   });
 
   it("B. leaves an untouched agent value system-owned so source correction still applies", async () => {

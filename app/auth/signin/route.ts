@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { SIGN_IN_SCOPES } from "@/lib/google/scopes";
 import { requireEnv } from "@/lib/env";
 import { siteOrigin } from "@/lib/http/site-origin";
+import { logFailure } from "@/lib/observability/log";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
       },
     );
   } catch (cause) {
-    console.error("Supabase sign-in initialization failed", cause);
+    logFailure("Supabase sign-in initialization", cause);
     return NextResponse.redirect(new URL("/onboarding?error=auth_unavailable", origin));
   }
 
@@ -56,15 +57,15 @@ export async function GET(request: Request) {
       },
     }));
   } catch (cause) {
-    console.error("Supabase OAuth initialization failed", cause);
+    logFailure("Supabase OAuth initialization", cause);
     return NextResponse.redirect(new URL("/onboarding?error=auth_start_failed", origin));
   }
 
   const authorizeUrl = data?.url;
   if (error || !authorizeUrl) {
-    const reason = error?.message ?? "no_authorize_url";
+    if (error) logFailure("Google sign-in authorization", error);
     return NextResponse.redirect(
-      new URL(`/onboarding?error=${encodeURIComponent(reason)}`, origin)
+      new URL(`/onboarding?error=${error ? "auth_start_failed" : "no_authorize_url"}`, origin)
     );
   }
 

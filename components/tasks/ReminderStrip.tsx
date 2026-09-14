@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { dismissReminder, runSweep } from "@/app/actions/tasks";
 import type { OpenReminder } from "@/lib/db/queries";
 import { Card, CardTitle, Badge, buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 const VISIBLE_LIMIT = 5;
 
@@ -35,7 +36,7 @@ export function ReminderStrip({ items, nowIso }: { items: OpenReminder[]; nowIso
         const result = await fn();
         if (describe) setNote(describe(result));
         router.refresh();
-      } catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      } catch (e) { setError(presentError(e, { fallback: "Couldn't update reminders right now. Try again." })); }
       finally { setClearing(null); }
     });
   }

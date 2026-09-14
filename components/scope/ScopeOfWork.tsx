@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setScopeOfWork } from "@/app/actions/scope";
 import { Card, CardTitle, EmptyState, buttonStyle, fieldStyle, labelStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export interface ScopeOfWorkProps {
   clients: { id: string; name: string }[];
@@ -22,7 +23,7 @@ export function ScopeOfWork({ clients, scopes, canEdit, maxSummaryChars }: Scope
     setError(null); setNote(null); setBusyKey(key);
     startTransition(async () => {
       try { await fn(); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      catch (e) { setError(presentError(e, { fallback: "Couldn't update scope of work right now. Try again." })); }
       finally { setBusyKey(null); }
     });
   }

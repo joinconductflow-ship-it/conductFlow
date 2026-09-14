@@ -3,12 +3,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { regenerateDraft } from "@/app/actions/drafts";
 import { buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export function GenerateDraftButton({ commitmentId, hasDraft }:
   { commitmentId: string; hasDraft: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [reconnectRequired, setReconnectRequired] = useState(false);
 
   const idle = hasDraft ? "Rewrite draft" : "Write the draft";
 
@@ -21,13 +23,20 @@ export function GenerateDraftButton({ commitmentId, hasDraft }:
           aria-busy={isPending}
           onClick={() => {
             setError(null);
+            setReconnectRequired(false);
             startTransition(async () => {
               try {
                 const result = await regenerateDraft(commitmentId);
                 if (result.ok) router.refresh();
-                else setError(result.message ?? "The draft could not be written. Try again.");
+                else {
+                  setReconnectRequired(Boolean(result.reconnectRequired));
+                  setError(result.message ?? "The draft could not be written. Try again.");
+                }
               } catch (e) {
-                setError(e instanceof Error ? e.message : "Drafting failed.");
+                setError(presentError(e, {
+                  fallback: "The draft could not be written. Please try again.",
+                  authentication: "Please sign in again to write a draft.",
+                }));
               }
             });
           }}
@@ -44,9 +53,14 @@ export function GenerateDraftButton({ commitmentId, hasDraft }:
         </span>
       </div>
       {error && (
-        <p role="alert" style={{ color: "var(--danger-text)", marginTop: "var(--space-2)" }}>
-          {error}
-        </p>
+        <>
+          <p role="alert" style={{ color: "var(--danger-text)", marginTop: "var(--space-2)" }}>
+            {error}
+          </p>
+          {reconnectRequired && <a href="/settings" style={{ display: "inline-block", marginTop: "var(--space-2)" }}>
+            Reconnect Google
+          </a>}
+        </>
       )}
     </div>
   );

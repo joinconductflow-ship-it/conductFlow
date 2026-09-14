@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { scanSlackNow } from "@/app/actions/slack-watch";
 import { buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export function SlackScanButton() {
   const router = useRouter();
@@ -20,9 +21,16 @@ export function SlackScanButton() {
           ? `Pulled ${result.ingested} Slack conversation${result.ingested === 1 ? "" : "s"} into the queue.`
           : result.channelsScanned ? "Checked mapped Slack channels — no new conversations."
           : "No Slack channels were scanned. Check your mappings in Settings.");
-        if (result.errors) setError(`${result.errors} Slack scan${result.errors === 1 ? "" : "s"} failed. Please retry.`);
+        if (result.reconnectRequired) {
+          setError("Slack needs to be reconnected before ConductFlow can scan channels. Reconnect Slack in Settings.");
+        } else if (result.errors) {
+          setError(`${result.errors} Slack scan${result.errors === 1 ? "" : "s"} failed. Please retry.`);
+        }
         router.refresh();
-      } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to scan Slack."); }
+      } catch (cause) { setError(presentError(cause, {
+        fallback: "Couldn't scan Slack right now. Try again.",
+        authentication: "Please sign in again to scan Slack.",
+      })); }
     });
   }
 

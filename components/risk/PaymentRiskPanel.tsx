@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Unavailable } from "@/components/ui/Unavailable";
 import { resolveRisk, scanForPaymentRisk } from "@/app/actions/payments";
+import { presentError } from "@/lib/errors/presentation";
 import { Card, CardTitle, EmptyState, Badge, buttonStyle, proseStyle } from "@/components/ui/primitives";
 
 type Signal = "unsent_change_order" | "missing_document" | "delivery_overdue" | "invoice_due_quiet";
@@ -31,7 +32,7 @@ export function PaymentRiskPanel({ flags, clientNames, relatedDrafts, unavailabl
     setError(null); setBusyKey(key);
     startTransition(async () => {
       try { await action(); router.refresh(); }
-      catch (caught) { setError(caught instanceof Error ? caught.message : "That did not work."); }
+      catch (caught) { setError(presentError(caught, { fallback: "Couldn't update payment risk right now. Try again." })); }
       finally { setBusyKey(null); }
     });
   }

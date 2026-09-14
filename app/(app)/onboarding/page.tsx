@@ -2,6 +2,7 @@ import { signInAsDemoOwner } from "@/app/actions/dev-auth";
 import { Card, CardTitle, buttonStyle } from "@/components/ui/primitives";
 
 import { SignInControls } from "./sign-in-controls";
+import { presentErrorText } from "@/lib/errors/presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,11 @@ const NEXT = [
 export default async function Onboarding({ searchParams }:
   { searchParams: Promise<{ error?: string; sent?: string }> }) {
   const { error, sent } = await searchParams;
+  const safeError = presentErrorText(error, {
+    fallback: "Sign-in could not be completed. Please try again.",
+    authentication: "Sign-in could not be completed. Please try again.",
+    provider: "Google sign-in is temporarily unavailable. Please try again.",
+  });
   // The dev stub also requires a loopback Supabase URL, so a dev build pointed at the
   // hosted project cannot mint a session there. See app/actions/dev-auth.ts.
   const dev = process.env.NODE_ENV !== "production";
@@ -49,12 +55,12 @@ export default async function Onboarding({ searchParams }:
         </Card>
       )}
 
-      {error && (
+      {safeError && (
         <Card tone="danger" style={{ marginTop: "var(--space-4)" }}>
           <CardTitle tone="danger" dot>Sign-in failed</CardTitle>
           <p className="mono" style={{ color: "var(--muted)", fontSize: "var(--text-sm)",
             marginTop: "var(--space-2)", wordBreak: "break-word" }}>
-            {error}
+            {safeError}
           </p>
         </Card>
       )}

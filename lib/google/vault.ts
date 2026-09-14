@@ -14,6 +14,18 @@ export interface VaultKeys {
   previous?: Buffer;
 }
 
+/** The stored credential cannot be opened with the configured key material. */
+export class CredentialDecryptionError extends Error {
+  constructor(
+    message = "Stored refresh token could not be decrypted with any configured key.",
+    cause?: unknown,
+  ) {
+    super(message);
+    this.name = "CredentialDecryptionError";
+    if (cause !== undefined) this.cause = cause;
+  }
+}
+
 const KEY_BYTES = 32;
 
 function envKey(name: string): Buffer | undefined {
@@ -61,15 +73,24 @@ export function openRefreshToken(
 ): string {
   const candidates = [currentKek(keys), keys?.previous ?? envKey("DATA_SOURCE_KEK_PREVIOUS")]
     .filter((k): k is Buffer => !!k);
+  let lastError: unknown;
 
   for (const kek of candidates) {
     let dek: Buffer;
     try {
       dek = Buffer.from(decryptToken(sealed.dekSealed, kek, aad), "base64");
-    } catch {
+    } catch (error) {
+      lastError = error;
       continue; // Wrong KEK for this row; try the outgoing one.
     }
-    return decryptToken(sealed.tokenSealed, dek, aad);
+    try {
+      return decryptToken(sealed.tokenSealed, dek, aad);
+    } catch (error) {
+      lastError = error;
+      // A successfully unwrapped DEK with an unreadable token is just as unusable as a
+      // key mismatch. Try another configured KEK before reporting a reconnect state.
+      continue;
+    }
   }
-  throw new Error("Stored refresh token could not be decrypted with any configured key.");
+  throw new CredentialDecryptionError(undefined, lastError);
 }

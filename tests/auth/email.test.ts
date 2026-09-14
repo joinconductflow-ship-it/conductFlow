@@ -47,6 +47,6 @@ describe("POST /auth/email consent", () => {
     const response = await POST(request("true"));
     expect(response.cookies.get("cf-terms-accepted")).toBeUndefined();
     expect(new URL(response.headers.get("location")!).searchParams.get("error"))
-      .toBe("mail unavailable");
+      .toBe("magic_link_failed");
   });
 });

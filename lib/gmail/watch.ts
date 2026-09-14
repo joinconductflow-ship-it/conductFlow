@@ -26,6 +26,7 @@ export interface ScanGmailResult {
   ingested: number;
   skippedUnmatchedSender: number;
   errors: number;
+  reconnectRequired: boolean;
 }
 
 interface ConnectionRow {
@@ -57,7 +58,7 @@ export async function scanGmail(
 
   const result: ScanGmailResult = {
     connectionsScanned: 0, messagesConsidered: 0, ingested: 0,
-    skippedUnmatchedSender: 0, errors: 0,
+    skippedUnmatchedSender: 0, errors: 0, reconnectRequired: false,
   };
 
   for (const row of (data ?? []) as ConnectionRow[]) {
@@ -68,7 +69,13 @@ export async function scanGmail(
     } catch (e) {
       // A `DataSourceUnavailable` here means the grant was revoked between the row read
       // above and the token fetch — normal, not worth counting as a scan failure.
-      if (e instanceof DataSourceUnavailable) continue;
+      if (e instanceof DataSourceUnavailable) {
+        if (e.reason === "reconnect") {
+          result.reconnectRequired = true;
+          result.errors++;
+        }
+        continue;
+      }
       result.errors++;
       logFailure("scanGmail.connection", e);
     }

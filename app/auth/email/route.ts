@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { requireEnv } from "@/lib/env";
 import { siteOrigin } from "@/lib/http/site-origin";
+import { logFailure } from "@/lib/observability/log";
 
 export const dynamic = "force-dynamic";
 
@@ -40,27 +41,33 @@ export async function POST(request: Request) {
   const store = await cookies();
   const pending: { name: string; value: string; options: Record<string, unknown> }[] = [];
 
-  const db = createServerClient(
-    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-    {
-      cookies: {
-        getAll: () => store.getAll(),
-        setAll: (written) => {
-          pending.push(...(written as typeof pending));
+  let error: Error | null = null;
+  try {
+    const db = createServerClient(
+      requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+      requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+      {
+        cookies: {
+          getAll: () => store.getAll(),
+          setAll: (written) => {
+            pending.push(...(written as typeof pending));
+          },
         },
-      },
-    }
-  );
-
-  const { error } = await db.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
-  });
+      }
+    );
+    ({ error } = await db.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${origin}/auth/callback` },
+    }));
+  } catch (cause) {
+    logFailure("email sign-in link", cause);
+    error = new Error("magic_link_failed");
+  }
 
   // 303 so the browser follows with GET; this handler is reached by a form POST.
+  if (error) logFailure("email sign-in link", error);
   const target = error
-    ? new URL(`/onboarding?error=${encodeURIComponent(error.message)}`, origin)
+    ? new URL("/onboarding?error=magic_link_failed", origin)
     : new URL(`/onboarding?sent=${encodeURIComponent(email)}`, origin);
 
   const response = NextResponse.redirect(target, { status: 303 });

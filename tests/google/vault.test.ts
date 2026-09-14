@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { randomBytes } from "node:crypto";
-import { sealRefreshToken, openRefreshToken } from "@/lib/google/vault";
+import { CredentialDecryptionError, sealRefreshToken, openRefreshToken } from "@/lib/google/vault";
 
 const kek = randomBytes(32);
 const other = randomBytes(32);
@@ -31,9 +31,15 @@ describe("sealRefreshToken", () => {
     expect(() => openRefreshToken(sealed, "org-b:google:sub-123", { kek })).toThrow();
   });
 
-  it("refuses the wrong key", () => {
+it("refuses the wrong key", () => {
     const sealed = sealRefreshToken("1//refresh-token-value", aad, { kek });
-    expect(() => openRefreshToken(sealed, aad, { kek: other })).toThrow(/could not be decrypted/i);
+    try {
+      openRefreshToken(sealed, aad, { kek: other });
+      throw new Error("expected credential decryption to fail");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CredentialDecryptionError);
+      expect((error as CredentialDecryptionError).cause).toBeInstanceOf(Error);
+    }
   });
 
   it("falls back to the previous key during a rotation", () => {

@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { pushReviewRequestDraft } from "@/app/actions/reviews";
 import { Card, CardTitle, EmptyState, buttonStyle, proseStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 export interface ReviewRequestListProps {
   drafts: { id: string; client_id: string; subject: string | null; body: string }[];
@@ -20,7 +21,7 @@ export function ReviewRequestList({ drafts, clientNames }: ReviewRequestListProp
     setError(null); setNote(null); setBusyKey(key);
     startTransition(async () => {
       try { await fn(); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      catch (e) { setError(presentError(e, { fallback: "Couldn't update this review request right now. Try again." })); }
       finally { setBusyKey(null); }
     });
   }

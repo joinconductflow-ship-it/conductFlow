@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { resolveEscalation } from "@/app/actions/escalations";
 import type { OpenEscalation } from "@/lib/db/queries";
 import { Card, CardTitle, Badge, buttonStyle } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 const LABELS: Record<string, { title: string; why: string }> = {
   complaint: {
@@ -67,7 +68,7 @@ export function EscalationStrip({ items }: { items: OpenEscalation[] }) {
     setClearing(id);
     startTransition(async () => {
       try { await resolveEscalation(id, "resolved"); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "That did not work."); }
+      catch (e) { setError(presentError(e, { fallback: "Couldn't resolve this decision. Try again." })); }
     });
   }
 

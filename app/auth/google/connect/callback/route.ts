@@ -5,6 +5,7 @@ import { getServiceClient } from "@/lib/db/service";
 import { getCurrentOrgId } from "@/lib/db/queries";
 import { storeGrant, GOOGLE_TOKEN_ENDPOINT } from "@/lib/google/tokens";
 import { CONNECT_STATE_COOKIE } from "@/lib/google/connect-state";
+import { logFailure } from "@/lib/observability/log";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const denied = url.searchParams.get("error");
-  if (denied) return back(url.origin, denied);
+  if (denied) return back(url.origin, "google_access_denied");
   if (!code || !state) return back(url.origin, "missing_code");
 
   const store = await cookies();
@@ -32,25 +33,51 @@ export async function GET(request: Request) {
   // The cookie is the only thing tying this redirect to a request we started.
   if (!expected || expected.split(":")[0] !== state) return back(url.origin, "state_mismatch");
 
-  const orgId = await getCurrentOrgId();
+  let orgId: string | null;
+  try {
+    orgId = await getCurrentOrgId("Google capability callback");
+  } catch (error) {
+    logFailure("Google capability callback session", error);
+    return back(url.origin, "auth_session_failed");
+  }
   if (!orgId) return back(url.origin, "not_signed_in");
 
-  const db = await getServerClient();
-  const { data: auth } = await db.auth.getUser();
+  let db: Awaited<ReturnType<typeof getServerClient>>;
+  let auth: { user: { id?: string; email?: string | null } | null };
+  try {
+    db = await getServerClient();
+    const result = await db.auth.getUser();
+    auth = result.data;
+  } catch (error) {
+    logFailure("Google capability callback auth lookup", error);
+    return back(url.origin, "auth_session_failed");
+  }
 
-  const response = await fetch(GOOGLE_TOKEN_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID ?? "",
-      client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      redirect_uri: `${url.origin}/auth/google/connect/callback`,
-      grant_type: "authorization_code",
-    }),
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) return back(url.origin, typeof body?.error === "string" ? body.error : "token_exchange_failed");
+  let response: Response;
+  let body: { error?: unknown; refresh_token?: unknown; id_token?: unknown; scope?: unknown; expires_in?: unknown };
+  try {
+    response = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID ?? "",
+        client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+        redirect_uri: `${url.origin}/auth/google/connect/callback`,
+        grant_type: "authorization_code",
+      }),
+    });
+    body = await response.json().catch(() => ({}));
+  } catch (error) {
+    logFailure("Google capability token exchange", { provider: "google", operation: "token_exchange", error });
+    return back(url.origin, "google_connection_failed");
+  }
+  if (!response.ok) {
+    logFailure("Google capability token exchange", {
+      provider: "google", operation: "token_exchange", status: response.status, detail: body.error,
+    });
+    return back(url.origin, "google_connection_failed");
+  }
 
   // Without a refresh token the grant is useless in an hour, so treat it as a failure
   // rather than storing something that silently stops working.
@@ -59,17 +86,22 @@ export async function GET(request: Request) {
   const claims = decodeIdToken(body.id_token);
   if (!claims.sub) return back(url.origin, "no_account_id");
 
-  await storeGrant(getServiceClient(), {
-    orgId,
-    accountEmail: claims.email ?? auth.user?.email ?? "unknown",
-    externalAccountId: claims.sub,
-    refreshToken: body.refresh_token,
-    // What Google granted, which can be less than what was asked for.
-    scopes: typeof body.scope === "string" ? body.scope.split(" ").filter(Boolean) : [],
-    connectedBy: auth.user?.id ?? null,
-    accessTokenExpiresAt: typeof body.expires_in === "number"
-      ? new Date(Date.now() + body.expires_in * 1000).toISOString() : null,
-  });
+  try {
+    await storeGrant(getServiceClient(), {
+      orgId,
+      accountEmail: claims.email ?? auth.user?.email ?? "unknown",
+      externalAccountId: claims.sub,
+      refreshToken: body.refresh_token,
+      // What Google granted, which can be less than what was asked for.
+      scopes: typeof body.scope === "string" ? body.scope.split(" ").filter(Boolean) : [],
+      connectedBy: auth.user?.id ?? null,
+      accessTokenExpiresAt: typeof body.expires_in === "number"
+        ? new Date(Date.now() + body.expires_in * 1000).toISOString() : null,
+    });
+  } catch (error) {
+    logFailure("Google capability grant save", { provider: "google", operation: "store_grant", error });
+    return back(url.origin, "google_connection_failed");
+  }
 
   return NextResponse.redirect(new URL("/settings?connected=1", url.origin));
 }

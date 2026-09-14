@@ -6,6 +6,7 @@ import { setTaskStatus } from "@/app/actions/tasks";
 import { Badge, SectionHeading, StatusPill, buttonStyle } from "@/components/ui/primitives";
 import type { BoardTask } from "@/lib/db/queries";
 import type { TaskStatus } from "@/lib/tasks/transitions";
+import { presentError } from "@/lib/errors/presentation";
 
 const DAY_MS = 86_400_000;
 
@@ -101,7 +102,7 @@ export function TaskBoard({ items, nowIso }: { items: BoardTask[]; nowIso: strin
       } catch (e) {
         setErrors((prev) => ({
           ...prev,
-          [taskId]: e instanceof Error ? e.message : "That change did not stick.",
+          [taskId]: presentError(e, { fallback: "That change did not stick. Try again." }),
         }));
       } finally {
         setMovingId(null);

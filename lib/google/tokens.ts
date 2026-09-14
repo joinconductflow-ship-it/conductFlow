@@ -1,13 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { openRefreshToken, sealRefreshToken, type SealedToken } from "./vault";
+import { CredentialDecryptionError, openRefreshToken, sealRefreshToken, type SealedToken } from "./vault";
 import { logAudit } from "@/lib/audit/log";
 import type { GoogleApiError } from "./api-error";
+import { logFailure } from "@/lib/observability/log";
 
 export const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 
 /** No grant, a revoked grant, or a grant that never included the scope being asked for. */
 export class DataSourceUnavailable extends Error {
-  constructor(message: string, readonly reason: "missing" | "revoked" | "scope" | "refused") {
+  constructor(message: string, readonly reason: "missing" | "revoked" | "scope" | "refused" | "reconnect") {
     super(message);
     this.name = "DataSourceUnavailable";
   }
@@ -109,10 +110,45 @@ export async function getAccessToken(
   const cached = cache.get(row.id as string);
   if (cached && cached.expiresAtMs - now > EXPIRY_MARGIN_MS) return cached.accessToken;
 
-  const refreshToken = openRefreshToken(
-    { tokenSealed: row.token_sealed as string, dekSealed: row.dek_sealed as string },
-    aadFor(row.org_id as string, row.provider as string, row.external_account_id as string),
-  );
+  let refreshToken: string;
+  try {
+    refreshToken = openRefreshToken(
+      { tokenSealed: row.token_sealed as string, dekSealed: row.dek_sealed as string },
+      aadFor(row.org_id as string, row.provider as string, row.external_account_id as string),
+    );
+  } catch (error) {
+    if (!(error instanceof CredentialDecryptionError)) throw error;
+    logFailure("Google credential decrypt", {
+      provider: "google",
+      operation: "decrypt_refresh_token",
+      orgId,
+      dataSourceId: row.id,
+      error,
+    });
+    const { error: updateError } = await db.from("connected_data_source")
+      .update({
+        state: "error",
+        last_error: "credential_decryption_failed",
+        updated_at: new Date(now).toISOString(),
+      })
+      .eq("id", row.id)
+      .eq("org_id", orgId)
+      .eq("provider", "google");
+    if (updateError) {
+      logFailure("Google credential decrypt state update", {
+        provider: "google",
+        operation: "mark_reconnect_required",
+        orgId,
+        dataSourceId: row.id,
+        error: updateError,
+      });
+    }
+    invalidateCachedToken(row.id as string);
+    throw new DataSourceUnavailable(
+      "Google needs to be reconnected before this integration can run.",
+      "reconnect",
+    );
+  }
 
   const refreshed = await refreshAccessToken(refreshToken, deps);
   if (!refreshed.ok) {

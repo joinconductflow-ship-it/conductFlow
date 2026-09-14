@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { generateMeetingSuggestions } from "@/lib/meeting/assistant";
+import { logFailure } from "@/lib/observability/log";
+import { presentError } from "@/lib/errors/presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +58,10 @@ export async function POST(request: Request) {
     });
     return json(result, 200);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error) }, 400);
+    logFailure("meeting assistant generation", { provider: "ai", operation: "meeting_suggestions", error });
+    return json({ error: presentError(error, {
+      fallback: "Copilot is temporarily unavailable. Please try again.",
+      provider: "Copilot is temporarily unavailable. Please try again.",
+    }) }, 502);
   }
 }

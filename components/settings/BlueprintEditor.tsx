@@ -6,6 +6,7 @@ import { HARD_PROHIBITED, ALWAYS_NEEDS_APPROVAL } from "@/lib/agent/blueprint";
 import {
   Card, CardTitle, Badge, SectionHeading, buttonStyle, fieldStyle,
 } from "@/components/ui/primitives";
+import { presentError } from "@/lib/errors/presentation";
 
 const DESCRIPTIONS: Record<string, string> = {
   draft_recap: "Write a recap of what was said",
@@ -76,7 +77,7 @@ export function BlueprintEditor({ view }: { view: BlueprintView }) {
             setSaved(view.version + 1);
             router.refresh();
           } catch (e) {
-            setError(e instanceof Error ? e.message : "That change was refused.");
+            setError(presentError(e, { fallback: "That change was refused. Try again." }));
           }
         });
       }}

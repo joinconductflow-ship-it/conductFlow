@@ -16,7 +16,15 @@ export const proposeActionParameters = z.object({
     "human to read before approving — e.g. \"Calendar event 'Makeup session — Priya " +
     "Sharma' on Sep 16 at 3:00 PM for 30 minutes.\"",
   ),
-  date: z.string().optional().describe("YYYY-MM-DD, for calendar_event."),
+  date: z.string().optional().describe(
+    "YYYY-MM-DD, for calendar_event, resolved against the dateContext returned by " +
+    "listOpenCommitments. Never guess the year.",
+  ),
+  dateText: z.string().optional().describe(
+    "The human's original relative date phrase, verbatim, whenever they used one " +
+    "(e.g. \"next Tuesday\", \"tomorrow\", \"this Friday\"). The server resolves it " +
+    "authoritatively against the current date and org timezone; pass it alongside date.",
+  ),
   startTime: z.string().optional().describe("24h HH:MM, for calendar_event."),
   durationMinutes: z.number().optional().describe("For calendar_event."),
   documentTitle: z.string().optional().describe("For drive_document."),
@@ -41,6 +49,8 @@ export interface ProposalValues {
   durationMinutes: string;
   documentTitle: string;
   documentDetails: string;
+  /** Server-confirmed interpretation of a relative Calendar date. */
+  relativeDateConfirmed?: boolean;
 }
 
 /** The exact, authoritative payload a human approval executes. */
@@ -81,6 +91,7 @@ export function buildCopilotApprovalPayload(
   if (values.durationMinutes && Number.isFinite(duration)) inputData.duration_minutes = duration;
   if (values.documentTitle) inputData.document_title = values.documentTitle;
   if (values.documentDetails) inputData.document_details = values.documentDetails;
+  if (values.relativeDateConfirmed) inputData.relative_date_confirmed = true;
   return {
     commitmentId: identity.commitmentId,
     actionId: identity.actionId,

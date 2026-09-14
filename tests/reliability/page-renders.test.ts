@@ -28,6 +28,8 @@ import Layout from "@/app/(app)/layout";
 import Onboarding from "@/app/(app)/onboarding/page";
 
 vi.mock("@/lib/db/server", () => ({ getServerClient: vi.fn() }));
+// Credential health has its own scoped service-client suite; keep page renders database-free.
+vi.mock("@/lib/integrations/health-server", () => ({ connectionHealth: vi.fn(async () => ({})) }));
 vi.mock("next/navigation", async (importOriginal) => ({
   ...await importOriginal<typeof import("next/navigation")>(),
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
@@ -325,7 +327,8 @@ describe("independent sections and safe fallbacks", () => {
   it("does not claim disconnected integrations when their metadata cannot load", async () => {
     failing.add("connected_data_source_public");
     const html = renderToStaticMarkup(await Settings({ searchParams: Promise.resolve({ error: "Useful action error" }) }));
-    expect(html).toContain("Useful action error");
+  expect(html).toContain("Couldn&#x27;t complete that connection. Try again.");
+  expect(html).not.toContain("Useful action error");
     expect(html).toContain("Review the blueprint");
     expect(html).toContain("Google connections are temporarily unavailable");
   });

@@ -2,17 +2,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LanguageModel } from "ai";
 import { runIngest } from "@/lib/ingest/run";
 import { logFailure } from "@/lib/observability/log";
+import { DataSourceUnavailable } from "@/lib/google/tokens";
 import { channelHistory, senderLookup, slackToken } from "./client";
 
 const INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 export interface ScanSlackArgs { orgId?: string; now?: Date; }
 export interface ScanSlackResult {
   connectionsScanned: number; channelsScanned: number; messagesConsidered: number; ingested: number; errors: number;
+  reconnectRequired: boolean;
 }
 
 export async function scanSlack(db: SupabaseClient, args: ScanSlackArgs = {}, model?: LanguageModel): Promise<ScanSlackResult> {
   const now = args.now ?? new Date();
-  const result: ScanSlackResult = { connectionsScanned: 0, channelsScanned: 0, messagesConsidered: 0, ingested: 0, errors: 0 };
+  const result: ScanSlackResult = {
+    connectionsScanned: 0, channelsScanned: 0, messagesConsidered: 0, ingested: 0, errors: 0,
+    reconnectRequired: false,
+  };
   let query = db.from("connected_data_source").select("id,org_id")
     .eq("provider", "slack").eq("state", "active");
   if (args.orgId) query = query.eq("org_id", args.orgId);
@@ -65,6 +70,7 @@ export async function scanSlack(db: SupabaseClient, args: ScanSlackArgs = {}, mo
       }
     } catch (e) {
       result.errors++;
+      if (e instanceof DataSourceUnavailable && e.reason === "reconnect") result.reconnectRequired = true;
       logFailure("scanSlack.connection", e);
     }
   }
