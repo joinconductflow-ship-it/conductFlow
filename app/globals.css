@@ -874,6 +874,12 @@ button:active:not(:disabled), .cf-btn:active { transform: scale(0.97); }
   .task-calendar-dots { display: flex !important; }
 }
 
+/* The day cell is clickable (cursor: pointer already set inline) but had no hover
+   feedback at all — same treatment as .cf-row so the calendar and the queue agree on
+   what "this is clickable" looks like. */
+.task-calendar-day { transition: background var(--motion); }
+.task-calendar-day:hover { background: var(--surface-hover) !important; }
+
 .task-calendar-dots {
   display: none;
   flex-wrap: wrap;
