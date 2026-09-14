@@ -47,7 +47,11 @@ export function ConnectionList({ capabilities, connections }:
     <Card style={{ borderLeft: `2px solid var(--${health === "connected" ? "ok" : health === "not_connected" ? "border-strong" : "warn"})` }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap" }}>
         <CardTitle>Google Workspace</CardTitle>
-        <Badge tone={health === "connected" ? "ok" : health === "not_connected" ? "neutral" : "warn"}>{HEALTH_LABEL[health]}</Badge>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+          <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+            background: `var(--${health === "connected" ? "ok" : health === "not_connected" ? "border-strong" : "warn"})` }} />
+          <Badge tone={health === "connected" ? "ok" : health === "not_connected" ? "neutral" : "warn"}>{HEALTH_LABEL[health]}</Badge>
+        </span>
       </div>
       <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
         {health === "connected" ? `Connected as ${connections.map((r) => r.account_email).join(" · ")}`
@@ -108,8 +112,8 @@ export function ConnectionList({ capabilities, connections }:
           {c.key === "drive_templates" && c.connected && health === "connected" && <TemplatePicker disabled={isPending} />}
         </div>)}
       </details>
-      {error && <p role="alert" style={{ color: "var(--danger-text)", marginTop: "var(--space-3)" }}>{error}</p>}
-      {note && <p role="status" style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>{note}</p>}
+      {error && <p role="alert" className="cf-empty-state" style={{ color: "var(--danger-text)", marginTop: "var(--space-3)" }}>{error}</p>}
+      {note && <p role="status" className="cf-empty-state" style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>{note}</p>}
     </Card>
   );
 }
