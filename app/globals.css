@@ -146,6 +146,14 @@
 .marketing-page a { color: var(--accent-text); }
 .marketing-page a:hover { color: var(--accent-hover); }
 
+/* Header nav links (Product/How it works/Principles) jump to in-page anchors; scoped to
+   the marketing page only, not the whole app, since a signed-in ops screen has no
+   scroll-jump navigation to smooth. */
+html:has(.marketing-page) { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html:has(.marketing-page) { scroll-behavior: auto; }
+}
+
 .marketing-brand {
   display: inline-flex;
   align-items: center;
