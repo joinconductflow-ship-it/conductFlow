@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClientAndLink, ignoreUnmatchedSource, linkUnmatchedSource, searchUnmatchedClients } from "@/app/actions/unmatched";
 import { presentError } from "@/lib/errors/presentation";
 import type { ClientContact } from "@/lib/db/queries";
-import { Badge, buttonStyle, Card, CardTitle, EmptyState } from "@/components/ui/primitives";
+import { Badge, buttonStyle, Card, CardTitle } from "@/components/ui/primitives";
 
 export interface UnmatchedSourceItem {
   id: string;
@@ -130,6 +130,10 @@ export function UnmatchedSources({ sources, total = null }: Props) {
     });
   }
 
+  if (!sources.length) {
+    return <div className="queue-unmatched-empty" role="status"><span aria-hidden>✓</span> All sources matched</div>;
+  }
+
   return (
     <Card tone={sources.length ? "warn" : "neutral"}>
       <CardTitle tone={sources.length ? "warn" : "neutral"} dot>
@@ -141,12 +145,7 @@ export function UnmatchedSources({ sources, total = null }: Props) {
         {total !== null && total > sources.length && ` Showing ${sources.length} of ${total}; resolve these to see more.`}
       </p>
 
-      {!sources.length ? (
-        <div style={{ marginTop: "var(--space-4)" }}>
-          <EmptyState title="Nothing waiting" body="Automatic scans will place new senders and channels here for review." />
-        </div>
-      ) : (
-        <div style={{ display: "grid", gap: "var(--space-3)", marginTop: "var(--space-4)" }}>
+      <div style={{ display: "grid", gap: "var(--space-3)", marginTop: "var(--space-4)" }}>
           {sources.map((source) => {
             const selected = selectedClients[source.id] ?? null;
             const newName = newNames[source.id] ?? "";
@@ -190,8 +189,7 @@ export function UnmatchedSources({ sources, total = null }: Props) {
               </article>
             );
           })}
-        </div>
-      )}
+      </div>
     </Card>
   );
 }

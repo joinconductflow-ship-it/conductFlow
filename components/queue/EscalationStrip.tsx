@@ -73,7 +73,7 @@ export function EscalationStrip({ items }: { items: OpenEscalation[] }) {
   }
 
   return (
-    <Card tone="neutral" style={{ marginBottom: "var(--space-4)", borderLeft: "3px solid var(--warn)" }}>
+    <Card tone="neutral" className="queue-decision-inbox" style={{ marginBottom: "var(--space-6)", borderLeft: "3px solid var(--warn)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: "var(--space-3)", flexWrap: "wrap" }}>
         <CardTitle tone="warn" dot>Needs your decision</CardTitle>

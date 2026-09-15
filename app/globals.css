@@ -88,8 +88,8 @@
    * that want a narrower measure constrain their content inside the frame rather than
    * shrinking the frame itself.
    */
-  --shell: 1040px;
-  --gutter: var(--space-5);
+  --shell: 1160px;
+  --gutter: clamp(20px, 3vw, 32px);
 
   /* Fast enough to feel like feedback, not animation. */
   --motion: 120ms cubic-bezier(0.2, 0, 0.2, 1);
@@ -690,9 +690,10 @@ select:hover:not(:disabled):not(:focus) {
  */
 .cf-nav-link {
   display: block;
-  padding: 5px 9px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
   color: var(--muted);
+  font-size: 14px;
   white-space: nowrap;
   position: relative;
   transition: background var(--motion), color var(--motion), transform var(--motion);
@@ -700,8 +701,8 @@ select:hover:not(:disabled):not(:focus) {
 .cf-nav-link:hover { background: var(--surface-hover); color: var(--text); }
 .cf-nav-link:active { transform: scale(0.97); }
 .cf-nav-link[aria-current="page"] {
-  background: var(--raised);
-  color: var(--text);
+  background: var(--accent-quiet);
+  color: var(--accent-text);
   font-weight: 600;
 }
 /* A hairline accent under the active item repeats the destination signal a third way,
@@ -715,6 +716,42 @@ select:hover:not(:disabled):not(:focus) {
   height: 2px;
   border-radius: 2px;
   background: var(--accent);
+}
+.cf-nav-more-current {
+  background: var(--accent-quiet) !important;
+  color: var(--accent-text) !important;
+}
+
+.cf-page-header {
+  margin-bottom: var(--space-6);
+}
+.cf-page-title {
+  color: var(--text);
+  font-size: var(--text-2xl);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+.cf-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-strong);
+}
+.cf-section-heading h2 {
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.cf-section-note {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
 }
 
 /* A queue row is one big hit target; the arrow only confirms where the click will land. */
@@ -732,13 +769,11 @@ select:hover:not(:disabled):not(:focus) {
 
 /* Present to the keyboard, out of the way of everyone else, until it is focused. */
 .queue-sync-row {
-  display: grid;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--raised);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 .queue-sync-header {
   display: flex;
@@ -749,27 +784,37 @@ select:hover:not(:disabled):not(:focus) {
 }
 .queue-sync-label {
   margin: 0;
-  color: var(--faint);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 .queue-sync-controls {
-  display: flex;
-  gap: var(--space-3);
-  min-width: 0;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 .queue-sync-control {
   display: grid;
-  gap: var(--space-1);
-  flex: 0 1 270px;
+  gap: var(--space-2);
   min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--raised);
 }
 .queue-sync-button {
   justify-content: flex-start;
   gap: var(--space-2);
-  width: min(100%, 220px);
+  width: 100%;
+  height: 36px;
+  padding-inline: var(--space-3);
+  background: var(--surface);
+  border-color: var(--border-strong);
+  font-size: var(--text-md);
+  font-weight: 600;
 }
 .queue-sync-mark {
   width: 19px;
@@ -778,23 +823,21 @@ select:hover:not(:disabled):not(:focus) {
 }
 .queue-sync-action {
   margin-left: auto;
-  color: var(--muted);
+  color: var(--accent-text);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 650;
 }
 .queue-sync-status {
   margin: 0;
-  max-width: 42ch;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-xs);
+  color: var(--muted);
+  font-size: var(--text-sm);
 }
 .queue-sync-caption {
-  margin: var(--space-1) 0 0;
-  color: var(--faint);
-  font-size: var(--text-xs);
-  white-space: nowrap;
+  display: none;
 }
 .queue-filter-strip {
   display: flex;
@@ -804,6 +847,12 @@ select:hover:not(:disabled):not(:focus) {
   overflow-x: auto;
   padding-bottom: 2px;
   scrollbar-width: thin;
+}
+.queue-filter-button[aria-pressed="true"] {
+  background: var(--accent-quiet) !important;
+  border-color: var(--accent-line) !important;
+  color: var(--accent-text) !important;
+  font-weight: 650;
 }
 .queue-filter-empty {
   margin: 0;
@@ -842,16 +891,49 @@ select:hover:not(:disabled):not(:focus) {
 .queue-decision-row > span:last-child {
   flex: 0 0 auto;
 }
+.queue-decision-inbox,
+.queue-needs-attention {
+  background: var(--surface) !important;
+}
+.queue-decision-inbox {
+  border-color: var(--warn-line) !important;
+}
+.queue-needs-attention {
+  border-color: var(--danger-line) !important;
+}
+.queue-unmatched-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  color: var(--ok);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.queue-commitment-row {
+  min-height: 72px;
+  padding: 18px 20px !important;
+}
+.queue-commitment-row:focus-visible {
+  background: var(--accent-quiet);
+}
+.queue-commitment-main > span:first-child {
+  font-size: var(--text-md) !important;
+  letter-spacing: -0.01em;
+}
 
 @media (max-width: 680px) {
   .queue-sync-control {
-    flex-basis: 100%;
+    width: 100%;
   }
   .queue-sync-button {
     width: 100%;
   }
   .queue-sync-caption {
-    white-space: normal;
+    display: none;
+  }
+  .queue-sync-controls {
+    grid-template-columns: 1fr;
   }
   .queue-decision-row {
     flex-direction: column;

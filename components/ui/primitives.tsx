@@ -73,10 +73,10 @@ export function PageHeader({ title, lede, actions, meta }: {
   title: string; lede?: ReactNode; actions?: ReactNode; meta?: ReactNode;
 }) {
   return (
-    <header style={{ marginBottom: "var(--space-5)" }}>
+    <header className="cf-page-header">
       <div style={{ display: "flex", justifyContent: "space-between",
         alignItems: "baseline", gap: "var(--space-4)", flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: "var(--text-lg)" }}>{title}</h1>
+        <h1 className="cf-page-title">{title}</h1>
         {actions && <div style={{ display: "flex", gap: "var(--space-2)",
           alignItems: "center" }}>{actions}</div>}
       </div>
@@ -178,7 +178,9 @@ export function buttonStyle(variant: ButtonVariant = "secondary", disabled = fal
       + "color var(--motion), opacity var(--motion)",
     opacity: disabled ? 0.45 : 1,
     cursor: disabled ? "not-allowed" : "pointer",
-    border: "1px solid transparent",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
   };
   if (variant === "primary") {
     return { ...base, background: "var(--btn-bg-primary)", color: "#fff", fontWeight: 600 };
@@ -241,15 +243,11 @@ export function SectionLabel({ children }: { children: ReactNode }) {
  */
 export function SectionHeading({ children, note }: { children: ReactNode; note?: ReactNode }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline",
-      gap: "var(--space-4)", marginBottom: "var(--space-3)",
-      paddingBottom: "var(--space-2)", borderBottom: "1px solid var(--border)" }}>
-      <h2 style={{ fontSize: "var(--text-xs)", fontWeight: 600, letterSpacing: "0.08em",
-        textTransform: "uppercase", color: "var(--muted)" }}>
+    <div className="cf-section-heading">
+      <h2>
         {children}
       </h2>
-      {note && <span className="mono" style={{ color: "var(--faint)",
-        fontSize: "var(--text-xs)", flexShrink: 0 }}>{note}</span>}
+      {note && <span className="mono cf-section-note">{note}</span>}
     </div>
   );
 }

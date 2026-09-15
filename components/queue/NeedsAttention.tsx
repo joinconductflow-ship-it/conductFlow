@@ -14,7 +14,7 @@ export function NeedsAttention({ items }: { items: FailedTranscript[] }) {
   if (items.length === 0) return null;
 
   return (
-    <Card tone="danger" style={{ marginBottom: "var(--space-4)" }}>
+    <Card tone="danger" className="queue-needs-attention" style={{ marginBottom: "var(--space-6)" }}>
       <CardTitle tone="danger" dot>Extraction failed</CardTitle>
       <p style={{ color: "var(--muted)", marginTop: "var(--space-2)", maxWidth: "68ch" }}>
         Nothing was lost — the transcript is saved exactly as it arrived. Retrying runs

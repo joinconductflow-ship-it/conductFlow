@@ -11,7 +11,7 @@ vi.mock("@/components/queue/GmailScanButton", () => ({ GmailScanButton: () => nu
 vi.mock("@/components/queue/SlackScanButton", () => ({ SlackScanButton: () => null }));
 vi.mock("@/app/actions/unmatched", () => ({ createClientAndLink: vi.fn(), ignoreUnmatchedSource: vi.fn(),
   linkUnmatchedSource: vi.fn(), searchUnmatchedClients: vi.fn() }));
-it("shows the exact total, labels the 50-row window, and describes daily batches honestly", async () => {
+it("shows the exact total and labels the 50-row window", async () => {
   const select = vi.fn(), limits: number[] = [];
   const sources = Array.from({ length: 50 }, (_, i) => ({ id: String(i), provider: "google", source_type: "email",
     source_key: `person${i}@example.com`, source_name: `Person ${i}`, source_label: null,
@@ -28,8 +28,7 @@ it("shows the exact total, labels the 50-row window, and describes daily batches
   const html = renderToStaticMarkup(await QueuePage());
   expect(select).toHaveBeenCalledWith(expect.any(String), { count: "exact" });
   expect(limits).toContain(50);
-  expect(html).toContain("87 unmatched sources");
+  expect(html).toContain("87 waiting");
   expect(html).toContain("Showing 50 of 87");
-  expect(html).toContain("Scheduled daily batches");
   expect(html).not.toContain("50 unmatched sources");
 });

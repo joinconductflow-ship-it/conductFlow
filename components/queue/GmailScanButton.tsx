@@ -57,7 +57,7 @@ export function GmailScanButton() {
     <div className="queue-sync-control">
       <button type="button" className="queue-sync-button" disabled={isPending} aria-busy={isPending} onClick={scan}
         style={{ ...buttonStyle("secondary", isPending), minWidth: 148 }}>
-        <Image src="/integrations/gmail.webp" alt="" width={20} height={20} className="queue-sync-mark" />
+        <Image src="/integrations/gmail.webp" alt="" width={20} height={20} unoptimized className="queue-sync-mark" />
         <span>Gmail</span>
         <span className="queue-sync-action">{isPending ? "Syncing…" : "Sync"}</span>
       </button>

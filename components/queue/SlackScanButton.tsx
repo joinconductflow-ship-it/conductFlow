@@ -39,7 +39,7 @@ export function SlackScanButton() {
     <div className="queue-sync-control">
       <button type="button" className="queue-sync-button" disabled={pending} aria-busy={pending} onClick={scan}
         style={{ ...buttonStyle("secondary", pending), minWidth: 148 }}>
-        <Image src="/integrations/slack.webp" alt="" width={20} height={20} className="queue-sync-mark" />
+        <Image src="/integrations/slack.webp" alt="" width={20} height={20} unoptimized className="queue-sync-mark" />
         <span>Slack</span>
         <span className="queue-sync-action">{pending ? "Syncing…" : "Sync"}</span>
       </button>

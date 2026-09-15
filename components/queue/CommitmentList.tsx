@@ -188,7 +188,7 @@ export function CommitmentList({ items, nowIso = new Date().toISOString() }: {
             {FILTERS.map(({ key, label }) => {
               const active = filter === key;
               return (
-                <button key={key} type="button" aria-pressed={active} onClick={() => setFilter(key)}
+                <button key={key} type="button" className="queue-filter-button" aria-pressed={active} onClick={() => setFilter(key)}
                   style={{ ...buttonStyle(active ? "secondary" : "ghost"), height: 28 }}>
                   {label} <span className="mono" aria-label={`${counts[key]} commitments`}>
                     {counts[key]}

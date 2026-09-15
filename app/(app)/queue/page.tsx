@@ -20,7 +20,7 @@ export default async function QueuePage() {
     <PageHeader title="Queue" />
       <EmptyState
         title="Sign in to see your commitments"
-        body="ConductFlow keeps every promise your team made in one reviewable list."
+        body="Sign in to view and review your commitments."
         action={<Link href="/onboarding" className="cf-btn"
           style={buttonStyle("primary")}>Sign in</Link>}
       />
@@ -61,12 +61,10 @@ export default async function QueuePage() {
     && Number.isFinite(Date.parse(c.deadline)) && Date.parse(c.deadline) < Date.now()).length;
   const needsReview = items.filter((c) => c.status === "proposed").length;
   const needsDecision = escalations.unavailable ? null : (escalations.data ?? []).length;
-  const unmatchedCount = unmatched.unavailable ? null : unmatched.data?.total ?? null;
   const queueMeta = [
     `${needsReview} awaiting review`,
     `${overdueCount} overdue`,
     ...(needsDecision === null ? [] : [`${needsDecision} need a decision`]),
-    ...(unmatchedCount === null ? [] : [`${unmatchedCount} unmatched source${unmatchedCount === 1 ? "" : "s"}`]),
   ].join(" · ");
 
   return (
@@ -75,15 +73,13 @@ export default async function QueuePage() {
           rather than floating above the list. */}
       <PageHeader
         title="Queue"
-        lede="ConductFlow collects the commitments from your conversations here so you can review what needs attention and track what happens next."
         meta={queueMeta}
       />
 
       <section className="queue-sync-row" aria-labelledby="queue-sync-label">
         <div className="queue-sync-header">
           <div>
-            <p id="queue-sync-label" className="mono queue-sync-label">Connected sources</p>
-            <p className="mono queue-sync-caption">Scheduled daily batches · backlogs continue in later batches · Sync runs the next batch</p>
+            <h2 id="queue-sync-label" className="queue-sync-label">Connected sources</h2>
           </div>
         </div>
         <div className="queue-sync-controls">

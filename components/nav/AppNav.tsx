@@ -55,11 +55,11 @@ export function AppNav({ email }: { email: string | null }) {
     <nav aria-label="Main" className="cf-nav">
       <div style={{ maxWidth: "var(--shell)", margin: "0 auto", padding: "0 var(--gutter)",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        gap: "var(--space-4)", minHeight: 48, flexWrap: "wrap" }}>
+        gap: "var(--space-5)", minHeight: 64, flexWrap: "wrap" }}>
 
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-5)", minWidth: 0, flexWrap: "wrap" }}>
-          <Link href="/queue" style={{ color: "var(--text)", fontWeight: 600,
-            fontSize: "var(--text-base)", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+          <Link href="/queue" style={{ color: "var(--text)", fontWeight: 650,
+            fontSize: "17px", letterSpacing: "-0.03em", whiteSpace: "nowrap" }}>
             ConductFlow
           </Link>
 
@@ -84,9 +84,7 @@ export function AppNav({ email }: { email: string | null }) {
                   event.currentTarget.querySelector("summary")?.focus();
                 }
               }}>
-                <summary className="cf-nav-link" style={{ cursor: "pointer",
-                  background: currentMore ? "var(--raised)" : undefined,
-                  color: currentMore ? "var(--text)" : undefined,
+                <summary className={`cf-nav-link${currentMore ? " cf-nav-more-current" : ""}`} style={{ cursor: "pointer",
                   fontWeight: currentMore ? 600 : undefined }}>
                   {currentMore ? `More · ${currentMore.label}` : "More"}
                 </summary>
@@ -113,7 +111,7 @@ export function AppNav({ email }: { email: string | null }) {
 
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", minWidth: 0 }}>
           <Link href="/ingest" className="cf-btn"
-            style={{ ...buttonStyle("primary"), color: "#fff", height: 28,
+            style={{ ...buttonStyle("primary"), color: "#fff", height: 36,
               fontSize: "var(--text-sm)" }}>
             Add transcript
           </Link>
