@@ -636,6 +636,15 @@ button:active:not(:disabled), .cf-btn:active { transform: scale(0.97); }
   button:active:not(:disabled), .cf-btn:active { transform: none; }
 }
 
+/* Text inputs across the app share fieldStyle's border-color transition but never had a
+   hover rule to transition to; on this cream palette the difference between "resting" and
+   "about to be focused" was otherwise invisible until the pointer was already inside. */
+input:not([type="checkbox"]):not([type="radio"]):hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus) {
+  border-color: var(--border-loud);
+}
+
 ::placeholder { color: var(--faint); }
 
 ::selection { background: var(--accent-quiet); }
