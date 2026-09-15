@@ -143,7 +143,7 @@ export function EscalationStrip({ items }: { items: OpenEscalation[] }) {
       )}
 
       {error && (
-        <p role="alert" style={{ color: "var(--danger-text)", marginTop: "var(--space-3)" }}>
+        <p role="alert" className="cf-empty-state" style={{ color: "var(--danger-text)", marginTop: "var(--space-3)" }}>
           That could not be cleared.{" "}
           <span className="mono" style={{ color: "var(--muted)" }}>{error}</span>
         </p>
