@@ -6,153 +6,121 @@ import { getAccessToken, DataSourceUnavailable } from "@/lib/google/tokens";
 import { CAPABILITIES } from "@/lib/google/scopes";
 import { runIngest } from "@/lib/ingest/run";
 import { logFailure } from "@/lib/observability/log";
+import { matchGmailClient, recordUnmatchedSource } from "@/lib/integrations/unmatched";
+import { claimScan, releaseScan, type ScanConnection } from "@/lib/integrations/scan-lease";
 
 const READ_SCOPE = CAPABILITIES.gmail_watch.scopes[0];
-
-/** First-ever scan on a connection looks back this far, not the whole mailbox history. */
 const INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_MAX_MESSAGES_PER_ORG = 10;
-
-export interface ScanGmailArgs {
-  /** Omit to scan every org with an active gmail_watch connection — what the cron route does. */
-  orgId?: string;
-  now?: Date;
-  maxMessagesPerOrg?: number;
-}
-
+export const GMAIL_SCAN_PAGE_SIZE = 10;
+export interface ScanGmailArgs { orgId?: string; now?: Date; maxMessagesPerOrg?: number; }
 export interface ScanGmailResult {
-  connectionsScanned: number;
-  messagesConsidered: number;
-  ingested: number;
-  skippedUnmatchedSender: number;
-  errors: number;
-  reconnectRequired: boolean;
+  connectionsScanned: number; messagesConsidered: number; ingested: number;
+  skippedUnmatchedSender: number; unmatchedSourcesRecorded: number; errors: number; reconnectRequired: boolean;
 }
 
-interface ConnectionRow {
-  id: string; org_id: string; scopes: string[]; gmail_last_scanned_at: string | null;
-}
-
-/**
- * The inbox side of "ConductFlow watches your Gmail": for each org that granted
- * `gmail_watch`, reads inbox mail received since the last scan, matches the sender against
- * a known client, and turns anything that matches straight into proposed commitments via
- * the same pipeline `/ingest` uses for a pasted transcript. A commitment created this way is
- * still just `proposed` — nothing is drafted to a client or sent without the usual approval.
- *
- * Unmatched senders are skipped outright rather than guessed at: silently letting a stranger's
- * email create commitments in someone's business is a worse failure mode than missing one.
- */
-export async function scanGmail(
-  db: SupabaseClient, args: ScanGmailArgs = {}, model?: LanguageModel,
-): Promise<ScanGmailResult> {
-  const now = args.now ?? new Date();
-  const maxMessagesPerOrg = args.maxMessagesPerOrg ?? DEFAULT_MAX_MESSAGES_PER_ORG;
-
-  let query = db.from("connected_data_source")
-    .select("id,org_id,scopes,gmail_last_scanned_at")
-    .eq("provider", "google").eq("state", "active");
-  if (args.orgId) query = query.eq("org_id", args.orgId);
-  const { data, error } = await query;
-  if (error) throw error;
-
-  const result: ScanGmailResult = {
-    connectionsScanned: 0, messagesConsidered: 0, ingested: 0,
-    skippedUnmatchedSender: 0, errors: 0, reconnectRequired: false,
-  };
-
-  for (const row of (data ?? []) as ConnectionRow[]) {
-    if (!row.scopes.includes(READ_SCOPE)) continue;
-    result.connectionsScanned++;
-    try {
-      await scanOneConnection(db, row, now, maxMessagesPerOrg, model, result);
-    } catch (e) {
-      // A `DataSourceUnavailable` here means the grant was revoked between the row read
-      // above and the token fetch — normal, not worth counting as a scan failure.
-      if (e instanceof DataSourceUnavailable) {
-        if (e.reason === "reconnect") {
-          result.reconnectRequired = true;
-          result.errors++;
-        }
-        continue;
-      }
-      result.errors++;
-      logFailure("scanGmail.connection", e);
+/** Bounded, resumable listing followed by oldest-first processing of a fixed time window. */
+export async function scanGmail(db: SupabaseClient, args: ScanGmailArgs = {}, model?: LanguageModel): Promise<ScanGmailResult> {
+  const result: ScanGmailResult = { connectionsScanned: 0, messagesConsidered: 0, ingested: 0,
+    skippedUnmatchedSender: 0, unmatchedSourcesRecorded: 0, errors: 0, reconnectRequired: false };
+  const connection = await claimScan(db, "google", args.orgId);
+  if (!connection) return result;
+  result.connectionsScanned = 1;
+  try {
+    await scanOneConnection(db, connection, args.now ?? new Date(),
+      Math.min(10, Math.max(1, Math.floor(args.maxMessagesPerOrg ?? 10))), model, result);
+  } catch (error) {
+    result.errors++;
+    if ((error instanceof DataSourceUnavailable && ["reconnect", "refused"].includes(error.reason))
+      || (error instanceof GmailError && ["invalid_grant", "unauthorized", "forbidden"].includes(error.kind))) {
+      result.reconnectRequired = true;
     }
+    logFailure("scanGmail.connection", error);
+  } finally {
+    await releaseScan(db, connection);
   }
   return result;
 }
-
-async function scanOneConnection(
-  db: SupabaseClient, connection: ConnectionRow, now: Date, maxMessages: number,
-  model: LanguageModel | undefined, result: ScanGmailResult,
-): Promise<void> {
-  const lastScanned = connection.gmail_last_scanned_at
-    ? new Date(connection.gmail_last_scanned_at)
-    : new Date(now.getTime() - INITIAL_LOOKBACK_MS);
-
-  const accessToken = await getAccessToken(db, connection.org_id, READ_SCOPE);
-  const client = createGmailClient(accessToken);
-
-  const afterEpochSeconds = Math.floor(lastScanned.getTime() / 1000);
-  const candidates = await client.listMessages(
-    `in:inbox after:${afterEpochSeconds}`, maxMessages * 2,
-  );
-
-  const parsed = (await Promise.all(candidates.map(async ({ id }) => {
-    try {
-      const message = await client.getMessage(id);
-      return message ? parseInboundMessage(message) : null;
-    } catch (e) {
-      // One unreadable message (a malformed part, a transient Gmail error) must not cost
-      // the whole scan — the rest of the candidates still get a chance.
-      if (!(e instanceof GmailError)) logFailure("scanGmail.getMessage", e);
-      return null;
-    }
-  })))
-    .filter((m): m is NonNullable<typeof m> => m !== null)
-    .filter((m) => m.receivedAtMs > lastScanned.getTime())
-    // Newest first so a cap below the candidate count keeps the most recent mail, not the
-    // oldest — dropping today's message in favor of a three-day-old one would be backwards.
-    .sort((a, b) => b.receivedAtMs - a.receivedAtMs)
-    .slice(0, maxMessages)
-    // Re-ascending once the newest are kept, so a client's own multi-message thread is
-    // ingested in the order it was actually said.
-    .sort((a, b) => a.receivedAtMs - b.receivedAtMs);
-
-  result.messagesConsidered += parsed.length;
-
-  for (const message of parsed) {
-    const { data: client_contact, error: clientLookupError } = await db.from("client_contact")
-      .select("id,name").eq("org_id", connection.org_id)
-      .ilike("email", message.fromEmail).limit(1).maybeSingle();
-    // A lookup failure (timeout, transient network error) is not the same as "no client has
-    // this email" — counting it as an unmatched sender would silently drop a real client's
-    // message instead of surfacing something worth retrying.
-    if (clientLookupError) throw clientLookupError;
-
-    if (!client_contact) {
-      result.skippedUnmatchedSender++;
-      continue;
-    }
-
-    try {
-      await runIngest(db, {
-        orgId: connection.org_id,
-        clientId: client_contact.id as string,
-        clientName: client_contact.name as string,
-        title: message.subject,
-        occurredAt: new Date(message.receivedAtMs).toISOString().slice(0, 10),
-        transcript: message.bodyText,
-      }, model);
-      result.ingested++;
-    } catch (e) {
-      result.errors++;
-      logFailure("scanGmail.runIngest", e);
-    }
+async function scanOneConnection(db: SupabaseClient, connection: ScanConnection, now: Date, limit: number,
+  model: LanguageModel | undefined, result: ScanGmailResult) {
+  const deadline = Date.now() + 180_000;
+  const client = createGmailClient(await getAccessToken(db, connection.org_id, READ_SCOPE,
+    { connectionId: connection.id }), { maxRetryWaitMs: 5_000 });
+  const { data: state, error: stateError } = await db.from("integration_scan_state")
+    .select("gmail_until,gmail_cursor,gmail_listed").eq("connection_id", connection.id).single();
+  if (stateError) throw stateError;
+  const last = connection.gmail_last_scanned_at ? Date.parse(connection.gmail_last_scanned_at) : now.getTime() - INITIAL_LOOKBACK_MS;
+  const until = state.gmail_until ? Date.parse(state.gmail_until) : now.getTime();
+  async function saveState(values: Record<string, unknown>) {
+    const { error } = await db.from("integration_scan_state").update(values)
+      .eq("connection_id", connection.id).eq("lease_token", connection.lease_token);
+    if (error) throw error;
   }
-
-  const { error: updateError } = await db.from("connected_data_source")
-    .update({ gmail_last_scanned_at: now.toISOString() }).eq("id", connection.id);
-  if (updateError) logFailure("scanGmail.updateLastScanned", updateError);
+  if (!state.gmail_until) {
+    // Persist BOTH boundaries: a first-ever window must not drift while pagination resumes.
+    const { error } = await db.from("connected_data_source").update({ gmail_last_scanned_at: new Date(last).toISOString() })
+      .eq("id", connection.id).eq("org_id", connection.org_id);
+    if (error) throw error;
+    await saveState({ gmail_until: new Date(until).toISOString() });
+  }
+  if (!state.gmail_listed) {
+    const page = await client.listMessagePage(
+      `in:inbox after:${Math.floor(last / 1000)} before:${Math.floor(until / 1000) + 1}`,
+      GMAIL_SCAN_PAGE_SIZE, state.gmail_cursor ?? undefined,
+    );
+    // Never acknowledge a listing page if even one fetch fails. Upserts make replay safe.
+    for (const { id } of page.messages) {
+      if (Date.now() >= deadline) return;
+      const message = await client.getMessage(id);
+      if (!message) continue; // Confirmed provider 404, not a swallowed transport error.
+      const received = Number(message.internalDate);
+      if (!Number.isFinite(received)) throw new Error("Invalid Gmail message timestamp");
+      if (received <= last || received > until) continue;
+      const { error } = await db.from("gmail_scan_pending").upsert({
+        connection_id: connection.id, message_id: id, received_at: new Date(received).toISOString(),
+      }, { onConflict: "connection_id,message_id" });
+      if (error) throw error;
+    }
+    await saveState({ gmail_cursor: page.nextPageToken ?? null, gmail_listed: !page.nextPageToken });
+    return; // Listing and model processing have separate invocation budgets.
+  }
+  const { data: pending, error: pendingError } = await db.from("gmail_scan_pending")
+    .select("message_id,received_at").eq("connection_id", connection.id)
+    .order("received_at").order("message_id").limit(limit);
+  if (pendingError) throw pendingError;
+  for (const item of pending ?? []) {
+    if (Date.now() >= deadline) return;
+    const raw = await client.getMessage(item.message_id);
+    const message = raw ? parseInboundMessage(raw) : null;
+    if (message) {
+      result.messagesConsidered++;
+      const matched = await matchGmailClient(db, connection.org_id, message.fromEmail);
+      if (!matched) {
+        const opened = await recordUnmatchedSource(db, {
+          orgId: connection.org_id, provider: "google", sourceType: "email",
+          sourceKey: message.fromEmail, sourceName: message.fromName || message.fromEmail,
+          sourceLabel: message.subject, connectedDataSourceId: connection.id, lastSeenAt: new Date(message.receivedAtMs),
+        });
+        result.skippedUnmatchedSender++;
+        if (opened) result.unmatchedSourcesRecorded++;
+      } else {
+        await runIngest(db, { orgId: connection.org_id, clientId: matched.id, clientName: matched.name,
+          title: message.subject, occurredAt: new Date(message.receivedAtMs).toISOString().slice(0, 10),
+          transcript: message.bodyText }, model);
+        result.ingested++;
+      }
+    }
+    // A failed message aborts here; it and every newer message remain durable for retry.
+    const { error } = await db.from("gmail_scan_pending").delete()
+      .eq("connection_id", connection.id).eq("message_id", item.message_id);
+    if (error) throw error;
+  }
+  const { data: remaining, error: remainingError } = await db.from("gmail_scan_pending").select("message_id")
+    .eq("connection_id", connection.id).limit(1);
+  if (remainingError) throw remainingError;
+  if (remaining?.length) return;
+  // Only a completely handled window advances the provider checkpoint.
+  const { error } = await db.from("connected_data_source").update({ gmail_last_scanned_at: new Date(until).toISOString() })
+    .eq("id", connection.id).eq("org_id", connection.org_id);
+  if (error) throw error;
+  await saveState({ gmail_until: null, gmail_cursor: null, gmail_listed: false });
 }

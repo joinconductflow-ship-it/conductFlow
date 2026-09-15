@@ -4,6 +4,7 @@ import { getServiceClient } from "@/lib/db/service";
 import { scanGmail } from "@/lib/gmail/watch";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 /** Same pattern as app/api/cron/reminders: closed by default without CRON_SECRET set. */
 function authorized(request: Request): boolean {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // Service role: this sweeps every org that connected gmail_watch, not just one caller's.
+  // Service role: atomically claims one eligible connection, with durable continuation.
   const result = await scanGmail(getServiceClient());
   return NextResponse.json(result);
 }

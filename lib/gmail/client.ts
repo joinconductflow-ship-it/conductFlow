@@ -81,11 +81,17 @@ export interface GmailClient {
   getMessage(messageId: string): Promise<GmailMessage | null>;
 }
 
+export interface GmailWatchClient extends GmailClient {
+  listMessagePage(query: string, maxResults: number, pageToken?: string): Promise<{ messages: { id: string }[]; nextPageToken?: string }>;
+}
+
 export interface GmailClientOptions {
   /** Injected for tests; production uses the global. */
   fetchImpl?: typeof fetch;
   wait?: (ms: number) => Promise<void>;
   maxRetries?: number;
+  /** Watchers defer long waits; draft callers retain their existing retry behavior. */
+  maxRetryWaitMs?: number;
 }
 
 function retryAfterFrom(headers: Headers): number | null {
@@ -137,7 +143,7 @@ const DEFAULT_MAX_RETRIES = 2;
  */
 export function createGmailClient(
   accessToken: string, options: GmailClientOptions = {},
-): GmailClient {
+): GmailWatchClient {
   const call = options.fetchImpl ?? fetch;
   const wait = options.wait ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
@@ -147,6 +153,7 @@ export function createGmailClient(
     for (;;) {
       const response = await call(url, {
         ...init,
+        signal: init.signal ?? AbortSignal.timeout(30_000),
         headers: {
           ...(init.headers ?? {}),
           Authorization: `Bearer ${accessToken}`,
@@ -162,6 +169,8 @@ export function createGmailClient(
       const backoffMs = failure instanceof GmailRateLimitError && failure.retryAfterSeconds !== null
         ? failure.retryAfterSeconds * 1000
         : 2 ** attempt * 500;
+      // Do not sleep past the worker budget; the durable scan can retry next invocation.
+      if (backoffMs > (options.maxRetryWaitMs ?? Infinity)) throw failure;
       await wait(backoffMs);
       attempt++;
     }
@@ -189,12 +198,16 @@ export function createGmailClient(
       return { exists: response.status !== 404 };
     },
 
-    async listMessages(query: string, maxResults: number) {
+    async listMessagePage(query: string, maxResults: number, pageToken?: string) {
       const params = new URLSearchParams({ q: query, maxResults: String(maxResults) });
+      if (pageToken) params.set("pageToken", pageToken);
       const response = await request(`${GMAIL_ENDPOINTS.listMessages}?${params}`, { method: "GET" });
-      if (response.status === 404) return [];
-      const payload = await response.json() as { messages?: { id: string }[] };
-      return payload.messages ?? [];
+      if (response.status === 404) throw new GmailError("Gmail listing unavailable.", 404);
+      const payload = await response.json() as { messages?: { id: string }[]; nextPageToken?: string };
+      return { messages: payload.messages ?? [], nextPageToken: payload.nextPageToken };
+    },
+    async listMessages(query: string, maxResults: number) {
+      return (await this.listMessagePage(query, maxResults)).messages;
     },
 
     async getMessage(messageId: string) {

@@ -19,8 +19,9 @@ export function SlackScanButton() {
         const result = await scanSlackNow();
         setNote(result.ingested
           ? `Pulled ${result.ingested} Slack conversation${result.ingested === 1 ? "" : "s"} into the queue.`
+          : result.unmatchedSourcesRecorded ? `Found ${result.unmatchedSourcesRecorded} Slack source${result.unmatchedSourcesRecorded === 1 ? "" : "s"} for review.`
           : result.channelsScanned ? "Checked mapped Slack channels — no new conversations."
-          : "No Slack channels were scanned. Check your mappings in Settings.");
+          : "Slack batch checked. Listing or backlog processing may need another batch; a scan may already be running.");
         if (result.reconnectRequired) {
           setError("Slack needs to be reconnected before ConductFlow can scan channels. Reconnect Slack in Settings.");
         } else if (result.errors) {
@@ -44,7 +45,7 @@ export function SlackScanButton() {
       </button>
       <p role={error ? "alert" : "status"} className="queue-sync-status"
         style={{ color: error ? "var(--danger-text)" : "var(--muted)" }}>
-        {error ? `${note ?? ""} ${error}` : note ?? "Mapped client channels"}
+        {error ? `${note ?? ""} ${error}` : note ?? "Daily scheduled batches · mapped client channels"}
       </p>
     </div>
   );

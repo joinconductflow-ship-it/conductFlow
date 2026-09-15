@@ -6,6 +6,7 @@ import { getServiceClient } from "@/lib/db/service";
 import { availableChannels, slackApi, slackToken, type SlackChannel } from "@/lib/slack/client";
 import { logFailure } from "@/lib/observability/log";
 import { failureHealth, slackHealthMessage, storedHealth, type IntegrationHealth } from "@/lib/integrations/health";
+import { markUnmatchedSourceLinked } from "@/lib/integrations/unmatched";
 
 export interface ChannelMapping {
   id: string; connected_data_source_id: string; channel_id: string; channel_name: string;
@@ -98,6 +99,19 @@ export async function addChannelMapping(requestedOrgId: string, connectionId: st
     channel_name: channel.name, client_contact_id: clientId,
   }, { onConflict: "connected_data_source_id,channel_id" });
   if (error) throw error;
+  try {
+    await markUnmatchedSourceLinked(getServiceClient(), {
+      orgId,
+      provider: "slack",
+      sourceType: "channel",
+      sourceKey: channel.id,
+      clientContactId: clientId,
+    });
+  } catch (cause) {
+    // Mapping a channel must remain usable even if an older deployment has not run the
+    // optional review-queue migration yet.
+    logFailure("Slack unmatched source link", { orgId, channelId: channel.id, error: cause });
+  }
   revalidatePath("/settings");
   revalidatePath("/queue");
 }

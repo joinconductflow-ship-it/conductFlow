@@ -17,6 +17,8 @@ export class DataSourceUnavailable extends Error {
 export interface TokenDeps {
   fetchImpl?: typeof fetch;
   now?: () => number;
+  /** Watchers must use the exact connection they leased, including after account replacement. */
+  connectionId?: string;
 }
 
 interface CachedToken { accessToken: string; expiresAtMs: number }
@@ -89,9 +91,11 @@ export async function getAccessToken(
 ): Promise<string> {
   const now = deps.now?.() ?? Date.now();
 
-  const { data: row, error } = await db.from("connected_data_source")
+  let query = db.from("connected_data_source")
     .select("id,org_id,provider,external_account_id,scopes,state,token_sealed,dek_sealed")
-    .eq("org_id", orgId).eq("provider", "google").maybeSingle();
+    .eq("org_id", orgId).eq("provider", "google");
+  if (deps.connectionId) query = query.eq("id", deps.connectionId);
+  const { data: row, error } = await query.maybeSingle();
   if (error) throw error;
   if (!row) throw new DataSourceUnavailable("No Google account is connected.", "missing");
   if (row.state !== "active")
@@ -161,7 +165,7 @@ export async function getAccessToken(
         .update({ state: "error", last_error: refreshed.error, updated_at: new Date(now).toISOString() })
         .eq("id", row.id);
     }
-    throw new DataSourceUnavailable(refreshed.error, "refused");
+    throw new DataSourceUnavailable(refreshed.error, refreshed.permanent ? "reconnect" : "refused");
   }
 
   cache.set(row.id as string, {

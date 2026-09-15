@@ -87,11 +87,11 @@ export async function getActionSuggestionsForCommitment(
   return (data ?? []) as CommitmentActionSuggestion[];
 }
 
-export interface ClientContact { id: string; org_id: string; name: string; kind: string | null; }
+export interface ClientContact { id: string; org_id: string; name: string; email?: string | null; kind: string | null; }
 
 export async function getClientContact(id: string): Promise<ClientContact | null> {
   const s = await getServerClient();
-  const { data, error } = await s.from("client_contact").select("id,org_id,name,kind")
+  const { data, error } = await s.from("client_contact").select("id,org_id,name,email,kind")
     .eq("id", id).maybeSingle();
   if (error) throw error;
   return (data ?? null) as ClientContact | null;
@@ -99,7 +99,7 @@ export async function getClientContact(id: string): Promise<ClientContact | null
 
 export async function listClients(orgId: string): Promise<ClientContact[]> {
   const s = await getServerClient();
-  const { data, error } = await s.from("client_contact").select("id,org_id,name,kind")
+  const { data, error } = await s.from("client_contact").select("id,org_id,name,email,kind")
     .eq("org_id", orgId).order("name");
   if (error) throw error;
   return (data ?? []) as ClientContact[];
