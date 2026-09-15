@@ -91,17 +91,21 @@ retainers, documents, scheduling, scope of work, reports, and the daily cron swe
 
 **Blocked or unfinished — pick one up if you're able to:**
 
-1. **The Google OAuth app is unverified and in Testing mode.** Only accounts explicitly
-   added as test users (Google Cloud Console → `conductflow-auth` project → **Google Auth
-   Platform → Audience**) can sign in with the restricted Gmail scope or connect
-   Gmail/Drive/Calendar at all — everyone else gets `access_denied`. Right now only
-   `sai.chowdarapu09@gmail.com` is allowlisted. Before onboarding anyone outside the team,
-   this needs Google's restricted-scope verification (published estimate: ~6 weeks for a
-   complete submission) plus an annual third-party CASA security assessment once verified
-   (cost varies by assessor — get quotes, budget it as a recurring line item, not a
-   one-time fee). This is also required regardless past ~100 total users. Do not open
-   public Gmail access before this path is done — that's a deliberate current gate, not an
-   oversight.
+1. **The Google OAuth app is published (In production, External) but still unverified.**
+   As of 2026-09-14 it is *not* in Testing mode, so there is no test-user allowlist gating
+   sign-in — any Google account can complete consent. The real constraint is Google's
+   **100-user lifetime cap** (Google Cloud Console → `conductflow-auth` project → **Google
+   Auth Platform → Audience**) on accounts granting the two unapproved *restricted* scopes
+   (`gmail.readonly`, `gmail.compose`); currently 3/100 used, and the cap cannot be reset.
+   Every user hitting that flow also sees Google's "unverified app" warning screen, since
+   branding shows a "needs to be verified" status too (**Branding** page) — until that's
+   verified, users see a raw Supabase-URL fallback instead of the "ConductFlow" name
+   already configured there. Before onboarding past ~100 total Gmail-scope users, or
+   removing the unverified-app warning, this needs Google's restricted-scope verification
+   (published estimate: ~6 weeks for a complete submission) plus an annual third-party CASA
+   security assessment once verified (cost varies by assessor — get quotes, budget it as a
+   recurring line item, not a one-time fee). Calendar/Drive scopes are sensitive, not
+   restricted, and are not subject to the CASA requirement.
 2. **No UI to configure a `billing_rate`.** The table (hourly rate per client, or one
    org-wide default) has no settings page anywhere — it's currently set by hand via SQL.
    `Draft invoice` fails with "no billing rate configured for this client or organization"
