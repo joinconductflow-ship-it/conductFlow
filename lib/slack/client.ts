@@ -19,12 +19,26 @@ export interface SlackMessage {
   ts: string; text?: string; user?: string; username?: string; bot_profile?: { name?: string };
 }
 
-export async function slackApi<T>(token: string, method: string, params: Record<string, string> = {}): Promise<T> {
+export class SlackRateLimitError extends SlackApiError {
+  constructor(readonly retryAfterSeconds: number) { super("rate_limited", 429); }
+}
+
+export async function slackApi<T>(token: string, method: string, params: Record<string, string> = {}, retried = false): Promise<T> {
   const response = await fetch(`https://slack.com/api/${method}`, {
     method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params), cache: "no-store", signal: AbortSignal.timeout(30_000),
   });
-  if (response.status === 429) throw new Error(`Slack rate limited this scan. Retry after ${response.headers.get("retry-after") ?? "60"} seconds.`);
+  if (response.status === 429) {
+    const raw = response.headers.get("retry-after") ?? "60";
+    const seconds = /^\d+(\.\d+)?$/.test(raw) ? Number(raw) : Math.ceil((Date.parse(raw) - Date.now()) / 1000);
+    const retryAfter = Number.isFinite(seconds) ? Math.max(1, seconds) : 60;
+    // Short waits retry once; long waits are durably deferred by the watcher.
+    if (!retried && retryAfter <= 5) {
+      await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+      return slackApi<T>(token, method, params, true);
+    }
+    throw new SlackRateLimitError(retryAfter);
+  }
   if (!response.ok) throw new SlackApiError("http_error", response.status);
   const data = await response.json() as T & SlackResponse;
   if (!data.ok) throw new SlackApiError(data.error ?? "request_failed", response.status);
@@ -73,6 +87,19 @@ export async function slackToken(db: SupabaseClient, orgId: string, connectionId
   }
 }
 
+export async function availableChannelPage(token: string, cursor = "") {
+  const page = await slackApi<SlackResponse & { channels: SlackChannel[] }>(token, "conversations.list", {
+    types: "public_channel,private_channel", exclude_archived: "true", limit: "100", cursor,
+  });
+  return { channels: page.channels, cursor: page.response_metadata?.next_cursor?.trim() ?? "" };
+}
+export async function historyPage(token: string, channel: string, oldest: string, latest: string, cursor = "") {
+  const page = await slackApi<SlackResponse & { messages: SlackMessage[]; has_more?: boolean }>(token,
+    "conversations.history", { channel, oldest, latest, inclusive: "true", limit: "100", cursor });
+  const next = page.response_metadata?.next_cursor?.trim() ?? "";
+  if (page.has_more && !next) throw new Error("Slack returned incomplete history. Retry the scan.");
+  return { messages: page.messages.filter((m) => Number(m.ts) > Number(oldest) && Number(m.ts) <= Number(latest)), cursor: next };
+}
 export async function availableChannels(token: string): Promise<SlackChannel[]> {
   const channels: SlackChannel[] = [];
   let cursor = "";

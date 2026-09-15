@@ -30,10 +30,27 @@ function database(row: Record<string, unknown>) {
   return {
     db: { from: vi.fn(() => query) } as unknown as SupabaseClient,
     updates,
+    query,
   };
 }
 
 describe("Google credential reconnect state", () => {
+  it("scopes watcher credentials to the exact leased connection", async () => {
+    const { db, query } = database({ id: "c", state: "revoked" });
+    await expect(getAccessToken(db, "org", DRIVE, { connectionId: "c" })).rejects.toMatchObject({ reason: "revoked" });
+    expect(query.eq).toHaveBeenCalledWith("id", "c");
+    expect(query.eq).toHaveBeenCalledWith("org_id", "org");
+  });
+  it("classifies a permanently refused refresh as reconnect, retaining transient failures as retryable", async () => {
+    const sealed = sealRefreshToken("refresh", "org:google:account");
+    for (const permanent of [true, false]) {
+      const { db, updates } = database({ id: `refresh-${permanent}`, org_id: "org", provider: "google",
+        external_account_id: "account", scopes: [DRIVE], state: "active", token_sealed: sealed.tokenSealed, dek_sealed: sealed.dekSealed });
+      const fetchImpl = vi.fn().mockResolvedValue(Response.json({ error: permanent ? "invalid_grant" : "temporarily_unavailable" }, { status: permanent ? 400 : 503 }));
+      await expect(getAccessToken(db, "org", DRIVE, { fetchImpl })).rejects.toMatchObject({ reason: permanent ? "reconnect" : "refused" });
+      expect(updates.some((u) => u.state === "error")).toBe(permanent);
+    }
+  });
   it("marks a key-mismatched credential errored without calling Google", async () => {
     const sealed = sealRefreshToken("refresh", "org:google:account", {
       kek: Buffer.alloc(32, 7),

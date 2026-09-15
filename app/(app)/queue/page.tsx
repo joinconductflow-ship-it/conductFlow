@@ -3,14 +3,15 @@ import { getServerClient } from "@/lib/db/server";
 import { SlackScanButton } from "@/components/queue/SlackScanButton";
 import { readPageData } from "@/lib/db/page-read";
 import { Unavailable } from "@/components/ui/Unavailable";
-import {
-  getCurrentOrgId, listCommitments, listFailedTranscripts, listOpenEscalations,
-} from "@/lib/db/queries";
+import { getCurrentOrgId, listCommitments, listFailedTranscripts, listOpenEscalations } from "@/lib/db/queries";
 import { CommitmentList } from "@/components/queue/CommitmentList";
 import { NeedsAttention } from "@/components/queue/NeedsAttention";
 import { EscalationStrip } from "@/components/queue/EscalationStrip";
 import { GmailScanButton } from "@/components/queue/GmailScanButton";
+import { UnmatchedSources, type UnmatchedSourceItem } from "@/components/queue/UnmatchedSources";
 import { PageHeader, EmptyState, buttonStyle, pageStyle } from "@/components/ui/primitives";
+
+export const maxDuration = 300;
 
 export default async function QueuePage() {
   const orgId = await getCurrentOrgId("/queue");
@@ -25,10 +26,19 @@ export default async function QueuePage() {
       />
     </main>);
 
-  const [commitments, failed, escalations] = await Promise.all([
+  const [commitments, failed, escalations, unmatched] = await Promise.all([
     readPageData("/queue: commitment", () => listCommitments(orgId)),
     readPageData("/queue: transcript failed extractions", () => listFailedTranscripts(orgId)),
     readPageData("/queue: escalation", () => listOpenEscalations(orgId)),
+    readPageData("/queue: unmatched integration sources", async () => {
+      const db = await getServerClient();
+      const { data, error, count } = await db.from("integration_unmatched_source")
+        .select("id,provider,source_type,source_key,source_name,source_label,occurrence_count,last_seen_at", { count: "exact" })
+        .eq("org_id", orgId).eq("status", "open")
+        .order("last_seen_at", { ascending: false }).limit(50);
+      if (error) throw error;
+      return { sources: (data ?? []) as UnmatchedSourceItem[], total: count ?? null };
+    }),
   ]);
   // Earliest date first — the promise closest to (or past) its deadline is the one an
   // owner needs to see without scrolling. Undated commitments sort last: there is no
@@ -44,21 +54,19 @@ export default async function QueuePage() {
     const { data: connections, error } = await db.from("connected_data_source_public").select("id")
       .eq("org_id", orgId).eq("provider", "slack").eq("state", "active");
     if (error) throw error;
-    if (!connections?.length) return false;
-    const { data, error: mappingError } = await db.from("slack_channel_mapping").select("id")
-      .eq("org_id", orgId).in("connected_data_source_id", connections.map((connection) => connection.id)).limit(1);
-    if (mappingError) throw mappingError;
-    return !!data?.length;
+    return !!connections?.length;
   });
   const nowIso = new Date().toISOString();
   const overdueCount = items.filter((c) => c.status !== "done" && c.deadline
     && Number.isFinite(Date.parse(c.deadline)) && Date.parse(c.deadline) < Date.now()).length;
   const needsReview = items.filter((c) => c.status === "proposed").length;
   const needsDecision = escalations.unavailable ? null : (escalations.data ?? []).length;
+  const unmatchedCount = unmatched.unavailable ? null : unmatched.data?.total ?? null;
   const queueMeta = [
     `${needsReview} awaiting review`,
     `${overdueCount} overdue`,
     ...(needsDecision === null ? [] : [`${needsDecision} need a decision`]),
+    ...(unmatchedCount === null ? [] : [`${unmatchedCount} unmatched source${unmatchedCount === 1 ? "" : "s"}`]),
   ].join(" · ");
 
   return (
@@ -75,7 +83,7 @@ export default async function QueuePage() {
         <div className="queue-sync-header">
           <div>
             <p id="queue-sync-label" className="mono queue-sync-label">Connected sources</p>
-            <p className="mono queue-sync-caption">Pull new conversations into the queue</p>
+            <p className="mono queue-sync-caption">Scheduled daily batches · backlogs continue in later batches · Sync runs the next batch</p>
           </div>
         </div>
         <div className="queue-sync-controls">
@@ -83,6 +91,10 @@ export default async function QueuePage() {
           {slackReady.data && <SlackScanButton />}
         </div>
       </section>
+
+      {unmatched.unavailable
+        ? <Unavailable section="Unmatched source review is" />
+        : <UnmatchedSources sources={unmatched.data?.sources ?? []} total={unmatched.data?.total ?? null} />}
 
       {/* Escalations first: a complaint outranks the queue it came from. */}
       {escalations.unavailable ? <Unavailable section="Escalations are" /> : <EscalationStrip items={escalations.data ?? []} />}

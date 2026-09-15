@@ -11,24 +11,24 @@ function summarize(result: Awaited<ReturnType<typeof scanGmailNow>>): string {
     return "Gmail needs to be reconnected before ConductFlow can scan mail. Reconnect Google in Settings.";
   }
   if (result.connectionsScanned === 0) {
-    return "Gmail isn't connected for watching yet — turn it on in Settings.";
+    return "No Gmail batch available. A scan may already be running; check the connection in Settings.";
   }
+  if (result.errors) return "Gmail scan paused after an error. Pending messages were retained; retry the next batch.";
   if (result.ingested === 0 && result.skippedUnmatchedSender === 0) {
-    return "Checked your inbox — nothing new since the last scan.";
+    return "Gmail batch checked. Listing and backlog processing may need another batch.";
   }
   const parts: string[] = [];
   if (result.ingested > 0) {
     parts.push(`pulled ${result.ingested} conversation${result.ingested === 1 ? "" : "s"} into the queue`);
   }
-  if (result.skippedUnmatchedSender > 0) {
-    parts.push(`skipped ${result.skippedUnmatchedSender} from senders you don't have as clients yet`);
+  if (result.unmatchedSourcesRecorded > 0) {
+    parts.push(`opened ${result.unmatchedSourcesRecorded} new unmatched source${result.unmatchedSourcesRecorded === 1 ? "" : "s"} for review`);
   }
-  return `Scanned your inbox — ${parts.join(", ")}.`;
+  return parts.length ? `Processed a Gmail batch — ${parts.join(", ")}.` : "Processed a Gmail batch; existing unmatched sources remain unchanged.";
 }
 
 /**
- * The manual half of the Gmail watcher: /api/cron/gmail-scan runs this once a day for
- * every org automatically, but the demo moment is clicking this and watching the queue
+ * The manual half of the Gmail watcher: /api/cron/gmail-scan runs this once a day as a bounded batch automatically, but the demo moment is clicking this and watching the queue
  * below fill in from real mail, not waiting for tomorrow's cron.
  */
 export function GmailScanButton() {
@@ -63,7 +63,7 @@ export function GmailScanButton() {
       </button>
       <p role={error ? "alert" : "status"} className="queue-sync-status"
         style={{ color: error ? "var(--danger-text)" : "var(--muted)" }}>
-        {error ?? note ?? "Known-client mail"}
+        {error ?? note ?? "Daily scheduled batches · known-client mail"}
       </p>
     </div>
   );
