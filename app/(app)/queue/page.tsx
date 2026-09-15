@@ -61,11 +61,21 @@ export default async function QueuePage() {
     && Number.isFinite(Date.parse(c.deadline)) && Date.parse(c.deadline) < Date.now()).length;
   const needsReview = items.filter((c) => c.status === "proposed").length;
   const needsDecision = escalations.unavailable ? null : (escalations.data ?? []).length;
-  const queueMeta = [
-    `${needsReview} awaiting review`,
-    `${overdueCount} overdue`,
-    ...(needsDecision === null ? [] : [`${needsDecision} need a decision`]),
-  ].join(" · ");
+  const queueMeta = (
+    <span className="queue-summary">
+      <span className="queue-summary-chip queue-summary-review">{needsReview} awaiting review</span>
+      <span className="queue-summary-separator" aria-hidden>·</span>
+      <span className="queue-summary-chip queue-summary-overdue">{overdueCount} overdue</span>
+      {needsDecision !== null && (
+        <>
+          <span className="queue-summary-separator" aria-hidden>·</span>
+          <span className={`queue-summary-chip ${needsDecision > 0 ? "queue-summary-decision" : "queue-summary-neutral"}`}>
+            {needsDecision} need a decision
+          </span>
+        </>
+      )}
+    </span>
+  );
 
   return (
     <main style={pageStyle}>
