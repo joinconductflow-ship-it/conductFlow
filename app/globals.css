@@ -549,10 +549,21 @@ html:has(.marketing-page) { scroll-behavior: smooth; }
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
-  /* Thin, recessive scrollbars: the chrome should not outweigh the rows it scrolls. */
+  /* Thin, recessive scrollbars: the chrome should not outweigh the rows it scrolls. The
+     standard properties cover current engines; the ::-webkit- rules are a fallback for
+     older Chromium/Safari that predate scrollbar-color support. */
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-loud); background-clip: padding-box; }
 
 html, body {
   background: var(--canvas);
