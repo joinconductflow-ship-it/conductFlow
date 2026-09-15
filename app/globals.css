@@ -569,6 +569,10 @@ p { margin: 0; }
 /* Numbers that get compared down a column must not jitter. */
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* The inactive tab in a segmented control (Calendar/Board) was transparent with no
+   feedback at all until you clicked it. */
+.cf-tab-btn:hover:not([aria-selected="true"]) { background: var(--raised-hover) !important; }
+
 /* Loading skeletons shaped like the content they precede (see app/(app)/queue/loading.tsx)
    rather than a spinner, so the layout doesn't jump once real content lands. */
 @keyframes cf-skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }

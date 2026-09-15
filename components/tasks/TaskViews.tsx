@@ -18,6 +18,7 @@ export function TaskViews({ items, nowIso }: { items: BoardTask[]; nowIso: strin
         marginBottom: "var(--space-4)" }}>
         {(["calendar", "board"] as const).map((v) => (
           <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}
+            className="cf-tab-btn"
             style={{
               padding: "5px 12px", fontSize: "var(--text-sm)", fontWeight: 600,
               border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer",
