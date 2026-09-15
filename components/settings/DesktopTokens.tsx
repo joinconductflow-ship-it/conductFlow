@@ -97,18 +97,18 @@ export function DesktopTokens({ tokens }: { tokens: TokenRow[] }) {
       </Card>
 
       {live.length === 0 ? (
-        <p style={{ fontSize: 13, opacity: .75, marginTop: 12 }}>
+        <p className="cf-empty-state" style={{ fontSize: 13, color: "var(--muted)", marginTop: 12 }}>
           No active tokens. The desktop app cannot reach this workspace until you create one.
         </p>
       ) : (
         <ul style={{ listStyle: "none", padding: 0, marginTop: 12, display: "grid", gap: 8 }}>
           {live.map((t) => (
-            <li key={t.id}>
+            <li key={t.id} className="cf-card-interactive">
               <Card padded>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ flex: 1 }}>
                     <strong style={{ fontSize: 13.5 }}>{t.label}</strong>
-                    <div style={{ fontSize: 12, opacity: .7, marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
                       created {when(t.created_at)} · last used {when(t.last_used_at)}
                     </div>
                   </div>
