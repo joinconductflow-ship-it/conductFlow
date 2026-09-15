@@ -931,18 +931,21 @@ select:hover:not(:disabled):not(:focus) {
 
 /*
  * A surface that responds to the pointer without pretending to be a button when it isn't
- * one — a lift and a lightened border, never a shadow (there is nothing to cast one on a
- * near-black canvas). Used by cards that lead somewhere or that hold live, changing data.
+ * one — a lift, a lightened border, and (now that the canvas is paper rather than
+ * near-black) a soft shadow that actually has something to cast onto. Used by cards that
+ * lead somewhere or that hold live, changing data.
  */
 .cf-card-interactive {
   transition: transform 180ms cubic-bezier(0.2, 0, 0.2, 1),
     border-color 180ms cubic-bezier(0.2, 0, 0.2, 1),
-    background 180ms cubic-bezier(0.2, 0, 0.2, 1);
+    background 180ms cubic-bezier(0.2, 0, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.2, 0, 0.2, 1);
 }
 .cf-card-interactive:hover {
   transform: translateY(-2px);
   border-color: var(--border-loud);
   background: var(--surface-hover);
+  box-shadow: 0 4px 16px rgba(23, 23, 23, 0.08);
 }
 
 /* A quiet accent wash behind the one figure per screen that matters most today. */
