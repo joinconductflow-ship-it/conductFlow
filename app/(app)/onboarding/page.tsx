@@ -43,7 +43,7 @@ export default async function Onboarding({ searchParams }:
       <SignInControls />
 
       {sent && (
-        <Card tone="ok" style={{ marginTop: "var(--space-4)" }}>
+        <Card tone="ok" className="cf-empty-state" style={{ marginTop: "var(--space-4)" }}>
           <CardTitle tone="ok" dot>Check your inbox</CardTitle>
           <p style={{ color: "var(--muted)", marginTop: "var(--space-2)", lineHeight: 1.5 }}>
             Check{" "}
@@ -56,7 +56,7 @@ export default async function Onboarding({ searchParams }:
       )}
 
       {safeError && (
-        <Card tone="danger" style={{ marginTop: "var(--space-4)" }}>
+        <Card tone="danger" className="cf-empty-state" style={{ marginTop: "var(--space-4)" }}>
           <CardTitle tone="danger" dot>Sign-in failed</CardTitle>
           <p className="mono" style={{ color: "var(--muted)", fontSize: "var(--text-sm)",
             marginTop: "var(--space-2)", wordBreak: "break-word" }}>
