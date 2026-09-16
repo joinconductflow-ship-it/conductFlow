@@ -3,7 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Unavailable } from "@/components/ui/Unavailable";
 import { markReviewStatus, submitReview } from "@/app/actions/reviews";
-import { Card, CardTitle, EmptyState, buttonStyle, proseStyle } from "@/components/ui/primitives";
+import { Card, CardTitle, EmptyState, buttonStyle, fieldStyle, labelStyle, proseStyle } from "@/components/ui/primitives";
 import { presentError } from "@/lib/errors/presentation";
 
 export interface ReceivedReviewPanelProps {
@@ -52,32 +52,35 @@ export function ReceivedReviewPanel({ reviews, unavailable }: ReceivedReviewPane
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
       {error && <p role="alert" style={{ color: "var(--danger-text)" }}>{error}</p>}
       <Card>
-        <CardTitle>Received a review?</CardTitle>
+        <CardTitle>Got a new review?</CardTitle>
+        <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
+          Paste it in and ConductFlow drafts a reply for you to send, matching the tone
+          and flagging anything that needs your attention first.
+        </p>
         <form onSubmit={(event) => { event.preventDefault(); submit(); }}
-          style={{ display: "grid", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
-          <label style={proseStyle}>Paste a review
+          style={{ marginTop: "var(--space-3)" }}>
+          <label style={labelStyle}>Paste the review here
             <textarea required value={rawReview} onChange={(event) => setRawReview(event.target.value)}
-              rows={5} style={{ display: "block", width: "100%", marginTop: "var(--space-1)" }} />
+              rows={5} style={{ ...fieldStyle, resize: "vertical" }} />
           </label>
-          <label style={proseStyle}>Reviewer name
+          <label style={labelStyle}>Reviewer's name (optional)
             <input value={reviewerName} onChange={(event) => setReviewerName(event.target.value)}
-              style={{ display: "block", width: "100%", marginTop: "var(--space-1)" }} />
+              style={fieldStyle} />
           </label>
-          <label style={proseStyle}>Star rating
-            <select value={rating} onChange={(event) => setRating(event.target.value)}
-              style={{ display: "block", marginTop: "var(--space-1)" }}>
+          <label style={labelStyle}>Star rating (optional)
+            <select value={rating} onChange={(event) => setRating(event.target.value)} style={fieldStyle}>
               <option value="">Not stated</option>
               {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </label>
-          <label style={proseStyle}>Source
-            <select value={source} onChange={(event) => setSource(event.target.value)}
-              style={{ display: "block", marginTop: "var(--space-1)" }}>
+          <label style={labelStyle}>Where did it come from?
+            <select value={source} onChange={(event) => setSource(event.target.value)} style={fieldStyle}>
               <option value="google">Google</option><option value="yelp">Yelp</option>
-              <option value="facebook">Facebook</option><option value="other">Other</option>
+              <option value="facebook">Facebook</option><option value="other">Somewhere else</option>
             </select>
           </label>
-          <button type="submit" disabled={isPending} style={buttonStyle("primary", isPending)}>
+          <button type="submit" disabled={isPending}
+            style={{ ...buttonStyle("primary", isPending), marginTop: "var(--space-4)" }}>
             {isPending && busyKey === "submit" ? "Drafting…" : "Draft response"}
           </button>
         </form>
@@ -87,7 +90,7 @@ export function ReceivedReviewPanel({ reviews, unavailable }: ReceivedReviewPane
         <Card key={review.id} style={review.status === "new" ? undefined : { opacity: 0.6 }}>
           <CardTitle>{review.reviewer_name || "Anonymous"}</CardTitle>
           <p style={{ ...proseStyle, color: "var(--muted)", marginTop: "var(--space-2)" }}>
-            {review.source ?? "Other"} · {review.rating ? "★".repeat(review.rating) : "N/A"} · {review.status}
+            {review.source ?? "Other"} · {review.rating ? "★".repeat(review.rating) : "no rating"} · {review.status}
           </p>
           <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
             <span style={badgeStyle(review.sentiment)}>{review.sentiment}</span>
