@@ -63,7 +63,7 @@ export function ReceivedReviewPanel({ reviews, unavailable }: ReceivedReviewPane
             <textarea required value={rawReview} onChange={(event) => setRawReview(event.target.value)}
               rows={5} style={{ ...fieldStyle, resize: "vertical" }} />
           </label>
-          <label style={labelStyle}>Reviewer's name (optional)
+          <label style={labelStyle}>Reviewer’s name (optional)
             <input value={reviewerName} onChange={(event) => setReviewerName(event.target.value)}
               style={fieldStyle} />
           </label>

@@ -41,7 +41,7 @@ export function PaymentRiskPanel({ flags, clientNames, relatedDrafts, unavailabl
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
       <p style={{ color: "var(--muted)" }}>
         Warns you before an invoice becomes a problem, like work that was never
-        formally agreed to, or a client who's gone quiet right when a bill is due.
+        formally agreed to, or a client who’s gone quiet right when a bill is due.
       </p>
       <div>
         <button type="button" disabled={isPending} onClick={() => run("scan", scanForPaymentRisk)}

@@ -15,11 +15,11 @@ export function UtilizationPanel({ data }: { data: ClientUtilization[] }) {
       <CardTitle>Client utilization</CardTitle>
       <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
         How much time and money each client represents, and how much of that work
-        hasn't been invoiced yet.
+        hasn’t been invoiced yet.
       </p>
       {data.length === 0 ? (
         <p style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>
-          Nothing here yet, log some time on the Billing page and it'll show up here.
+          Nothing here yet, log some time on the Billing page and it’ll show up here.
         </p>
       ) : (
         <div style={{ overflowX: "auto", marginTop: "var(--space-3)" }}>

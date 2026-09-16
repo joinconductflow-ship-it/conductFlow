@@ -41,7 +41,7 @@ export function DocumentChecklist({ clients, requirements, documents, drafts, un
       <Card>
         <CardTitle>Ask every client for a document</CardTitle>
         <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
-          Add it once here and ConductFlow tracks who's sent it and who hasn't, for
+          Add it once here and ConductFlow tracks who’s sent it and who hasn’t, for
           every client you have.
         </p>
         <form onSubmit={(event) => {
