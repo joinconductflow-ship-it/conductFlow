@@ -32,7 +32,7 @@ export default async function RetainerListPage() {
   return (
     <main style={pageStyle}>
       <div style={columnStyle}>
-        <PageHeader title="Retainers" lede="Track package balances, log usage, and review renewal drafts." />
+        <PageHeader title="Retainers" lede="For clients who've paid for a block of hours or sessions up front. ConductFlow tracks what's left and drafts a renewal offer when it's running low." />
         <RetainerList
           unavailable={{ clients: clients.unavailable, retainers: retainers.unavailable, drafts: drafts.unavailable }}
           clients={(clients.data ?? []) as RetainerListProps["clients"]}
