@@ -40,13 +40,17 @@ export function RetainerList({ clients, retainers, drafts, unavailable = {} }: R
         <EmptyState title="No clients yet" body="Add a client when adding a transcript, then create their package here." />
       ) : (
         <Card>
-          <CardTitle>Create a retainer</CardTitle>
+          <CardTitle>Create a package</CardTitle>
+          <p style={{ color: "var(--muted)", marginTop: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+            A block of hours, sessions, or credits a client has paid for up front. ConductFlow
+            tracks the balance and offers to draft a renewal when it runs low.
+          </p>
           <form onSubmit={(event) => {
             event.preventDefault();
             const form = event.currentTarget;
             const data = new FormData(form);
             run("create", async () => {
-              await createRetainer(data); form.reset(); setNote("Retainer created.");
+              await createRetainer(data); form.reset(); setNote("Package created.");
             });
           }}>
             <label style={labelStyle}>Client
@@ -55,26 +59,31 @@ export function RetainerList({ clients, retainers, drafts, unavailable = {} }: R
                 {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
               </select>
             </label>
-            <label style={labelStyle}>Package label
-              <input name="label" required disabled={isPending} style={fieldStyle} />
+            <label style={labelStyle}>What to call this package
+              <input name="label" required disabled={isPending} style={fieldStyle}
+                placeholder="e.g. 10-hour coaching package" />
             </label>
-            <label style={labelStyle}>Unit
+            <label style={labelStyle}>What are you counting?
               <select name="unit" defaultValue="hours" disabled={isPending} style={fieldStyle}>
                 <option value="hours">Hours</option><option value="sessions">Sessions</option>
                 <option value="credits">Credits</option>
               </select>
             </label>
-            <label style={labelStyle}>Total units
+            <label style={labelStyle}>How many did they buy?
               <input name="totalUnits" type="number" min="0.01" step="any" required
-                disabled={isPending} style={fieldStyle} />
+                disabled={isPending} style={fieldStyle} placeholder="e.g. 10" />
             </label>
-            <label style={labelStyle}>Low balance threshold
-              <input name="lowBalanceThreshold" type="number" min="0" step="any" defaultValue="0"
+            <label style={labelStyle}>Warn me when fewer than this many are left
+              <input name="lowBalanceThreshold" type="number" min="0" step="any" defaultValue="2"
                 required disabled={isPending} style={fieldStyle} />
+              <span style={{ display: "block", color: "var(--faint)", fontSize: "var(--text-sm)",
+                marginTop: "var(--space-1)" }}>
+                ConductFlow drafts a renewal offer once the balance drops below this.
+              </span>
             </label>
             <button disabled={isPending} aria-busy={isPending && busyKey === "create"}
               style={{ ...buttonStyle("primary", isPending), marginTop: "var(--space-4)" }}>
-              {isPending && busyKey === "create" ? "Creating…" : "Create retainer"}
+              {isPending && busyKey === "create" ? "Creating…" : "Create package"}
             </button>
           </form>
         </Card>
