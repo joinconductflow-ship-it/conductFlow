@@ -39,15 +39,19 @@ export function PaymentRiskPanel({ flags, clientNames, relatedDrafts, unavailabl
 
   return (
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
+      <p style={{ color: "var(--muted)" }}>
+        Warns you before an invoice becomes a problem, like work that was never
+        formally agreed to, or a client who's gone quiet right when a bill is due.
+      </p>
       <div>
         <button type="button" disabled={isPending} onClick={() => run("scan", scanForPaymentRisk)}
           style={buttonStyle("primary", isPending)}>
-          {isPending && busyKey === "scan" ? "Scanning…" : "Scan now"}
+          {isPending && busyKey === "scan" ? "Scanning…" : "Check now"}
         </button>
       </div>
       {error && <p role="alert" style={{ color: "var(--danger-text)" }}>{error}</p>}
-      {unavailable ? <Unavailable section="Payment risk flags are" /> : flags.length === 0 ? <EmptyState title="No payment risk flags right now."
-        body="Run a scan any time to correlate current invoice and operational signals." /> : flags.map((flag) => {
+      {unavailable ? <Unavailable section="Payment risk flags are" /> : flags.length === 0 ? <EmptyState title="Nothing to worry about right now."
+        body="Check any time, ConductFlow looks at your current invoices and work in progress for anything that could become a payment problem." /> : flags.map((flag) => {
         const draft = flag.related_draft_id ? relatedDrafts[flag.related_draft_id] : undefined;
         return (
           <Card key={flag.id} tone={flag.signal === "invoice_due_quiet" ? "warn" : "neutral"}>
