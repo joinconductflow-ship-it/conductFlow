@@ -86,8 +86,11 @@ export function SessionList({ clients, sessions, drafts, nowIso, unavailable = {
               {session.status.replaceAll("_", " ")}
             </Badge>
           </div>
-          <p className="mono" style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
-            <time dateTime={session.starts_at}>{new Date(session.starts_at).toISOString().slice(0, 16).replace("T", " ")} UTC</time>
+          <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
+            <time dateTime={session.starts_at}>
+              {new Date(session.starts_at).toLocaleString(undefined,
+                { dateStyle: "medium", timeStyle: "short" })}
+            </time>
           </p>
           {session.status === "scheduled" && Date.parse(session.starts_at) <= Math.max(now, Date.parse(nowIso)) && (
             <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-4)" }}>
