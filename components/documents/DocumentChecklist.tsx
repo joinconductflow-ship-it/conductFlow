@@ -39,25 +39,29 @@ export function DocumentChecklist({ clients, requirements, documents, drafts, un
       {error && <p role="alert" style={{ color: "var(--danger-text)" }}>{error}</p>}
       {note && <p role="status" style={{ color: "var(--muted)" }}>{note}</p>}
       <Card>
-        <CardTitle>Add a document requirement</CardTitle>
-        <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>Applies to every existing client.</p>
+        <CardTitle>Ask every client for a document</CardTitle>
+        <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
+          Add it once here and ConductFlow tracks who's sent it and who hasn't, for
+          every client you have.
+        </p>
         <form onSubmit={(event) => {
           event.preventDefault();
           const form = event.currentTarget;
           const data = new FormData(form);
           run("add", async () => {
-            await addDocumentRequirement(data); form.reset(); setNote("Requirement added.");
+            await addDocumentRequirement(data); form.reset(); setNote("Added to the checklist.");
           });
         }}>
-          <label style={labelStyle}>Document name
-            <input name="name" required disabled={isPending} style={fieldStyle} />
+          <label style={labelStyle}>What document?
+            <input name="name" required disabled={isPending} style={fieldStyle}
+              placeholder="e.g. Signed intake form" />
           </label>
-          <label style={labelStyle}>Description (optional)
+          <label style={labelStyle}>Notes for yourself (optional)
             <textarea name="description" rows={3} disabled={isPending} style={fieldStyle} />
           </label>
           <button disabled={isPending} aria-busy={isPending && busyKey === "add"}
             style={{ ...buttonStyle("primary", isPending), marginTop: "var(--space-4)" }}>
-            {isPending && busyKey === "add" ? "Adding…" : "Add requirement"}
+            {isPending && busyKey === "add" ? "Adding…" : "Add to checklist"}
           </button>
         </form>
       </Card>
@@ -85,7 +89,10 @@ export function DocumentChecklist({ clients, requirements, documents, drafts, un
                   <span>{client.name}</span>
                   <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
                     <Badge tone={document?.status === "received" ? "ok" : document?.status === "missing" ? "warn" : "neutral"}>
-                      {unavailable.documents ? "unavailable" : document?.status ?? "not assigned"}
+                      {unavailable.documents ? "unavailable"
+                        : document?.status === "received" ? "received"
+                        : document?.status === "missing" ? "waiting on it"
+                        : "not needed for this client"}
                     </Badge>
                     {document?.status === "missing" && (
                       <button disabled={isPending} aria-busy={isPending && busyKey === document.id}
