@@ -13,18 +13,24 @@ export function UtilizationPanel({ data }: { data: ClientUtilization[] }) {
   return (
     <Card>
       <CardTitle>Client utilization</CardTitle>
+      <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
+        How much time and money each client represents, and how much of that work
+        hasn't been invoiced yet.
+      </p>
       {data.length === 0 ? (
-        <p style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>No time logged yet.</p>
+        <p style={{ color: "var(--muted)", marginTop: "var(--space-3)" }}>
+          Nothing here yet, log some time on the Billing page and it'll show up here.
+        </p>
       ) : (
         <div style={{ overflowX: "auto", marginTop: "var(--space-3)" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
               <tr style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>
                 <th style={{ padding: "var(--space-2) var(--space-3) var(--space-2) 0" }}>Client</th>
-                <th style={{ padding: "var(--space-2) var(--space-3)", textAlign: "right" }}>Hours logged</th>
-                <th style={{ padding: "var(--space-2) var(--space-3)", textAlign: "right" }}>Hours unbilled</th>
-                <th style={{ padding: "var(--space-2) var(--space-3)", textAlign: "right" }}>Revenue billed</th>
-                <th style={{ padding: "var(--space-2) 0 var(--space-2) var(--space-3)", textAlign: "right" }}>Revenue unbilled</th>
+                <th style={{ padding: "var(--space-2) var(--space-3)", textAlign: "right" }}>Hours worked</th>
+                <th style={{ padding: "var(--space-2) var(--space-3)", textAlign: "right" }}>Hours not invoiced yet</th>
+                <th style={{ padding: "var(--space-2) var(--space-3)", textAlign: "right" }}>Invoiced</th>
+                <th style={{ padding: "var(--space-2) 0 var(--space-2) var(--space-3)", textAlign: "right" }}>Not invoiced yet</th>
               </tr>
             </thead>
             <tbody>
