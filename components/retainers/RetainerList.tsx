@@ -101,9 +101,12 @@ export function RetainerList({ clients, retainers, drafts, unavailable = {} }: R
           <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
             {clients.find((client) => client.id === retainer.client_id)?.name ?? "Unknown client"}
           </p>
-          <p className="tabular" style={{ marginTop: "var(--space-2)" }}>
-            {Math.max(0, retainer.total_units - retainer.used_units)} {retainer.unit} remaining
-            {" · "}{retainer.used_units} used of {retainer.total_units}
+          <p className="tabular" style={{ marginTop: "var(--space-2)", fontWeight: 600 }}>
+            {Math.max(0, retainer.total_units - retainer.used_units)} {retainer.unit} left
+          </p>
+          <p className="tabular" style={{ color: "var(--faint)", fontSize: "var(--text-sm)",
+            marginTop: "var(--space-1)" }}>
+            {retainer.used_units} of {retainer.total_units} used so far
           </p>
           {retainer.status === "active" && (
             <form onSubmit={(event) => {
@@ -113,18 +116,19 @@ export function RetainerList({ clients, retainers, drafts, unavailable = {} }: R
               run(retainer.id, async () => {
                 const result = await logUsage(retainer.id, Number(data.get("units")), String(data.get("note") ?? ""));
                 form.reset();
-                setNote(`Usage logged.${result.renewalDrafted ? " Renewal draft ready below." : ""}`);
+                setNote(`Logged.${result.renewalDrafted ? " Balance is running low, a renewal draft is ready below." : ""}`);
               });
             }}>
-              <label style={labelStyle}>Usage ({retainer.unit})
-                <input name="units" type="number" min="0.01" step="any" required disabled={isPending} style={fieldStyle} />
+              <label style={labelStyle}>How many {retainer.unit} did you just use?
+                <input name="units" type="number" min="0.01" step="any" required disabled={isPending} style={fieldStyle}
+                  placeholder="e.g. 1" />
               </label>
-              <label style={labelStyle}>Note (optional)
-                <input name="note" disabled={isPending} style={fieldStyle} />
+              <label style={labelStyle}>What was it for? (optional)
+                <input name="note" disabled={isPending} style={fieldStyle} placeholder="e.g. Tuesday session" />
               </label>
               <button disabled={isPending} aria-busy={isPending && busyKey === retainer.id}
                 style={{ ...buttonStyle("secondary", isPending), marginTop: "var(--space-4)" }}>
-                {isPending && busyKey === retainer.id ? "Logging…" : "Log usage"}
+                {isPending && busyKey === retainer.id ? "Logging…" : "Log it"}
               </button>
             </form>
           )}
