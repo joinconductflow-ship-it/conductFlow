@@ -30,9 +30,14 @@ export function ScopeOfWork({ clients, scopes, canEdit, maxSummaryChars }: Scope
 
   return (
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
+      <p style={{ color: "var(--muted)" }}>
+        Write down what you agreed to do for each client. ConductFlow compares new
+        promises against this, so it can nudge you if a client starts asking for
+        something outside what was originally agreed.
+      </p>
       {error && <p role="alert" style={{ color: "var(--danger-text)" }}>{error}</p>}
       {note && <p role="status" style={{ color: "var(--muted)" }}>{note}</p>}
-      {!canEdit && <p style={{ color: "var(--muted)" }}>Only an owner can edit scope of work.</p>}
+      {!canEdit && <p style={{ color: "var(--muted)" }}>Only an owner can edit this.</p>}
       {clients.length === 0 && <EmptyState title="No clients yet" body="Add a client when adding a transcript, then describe the agreed scope here." />}
       {clients.map((client) => {
         const summary = scopes.find((scope) => scope.client_id === client.id)?.summary ?? "";
