@@ -42,7 +42,11 @@ export function LeadInbox({ prospects, drafts, unavailable = {} }: LeadInboxProp
       {note && <p role="status" style={{ color: "var(--muted)" }}>{note}</p>}
 
       <Card>
-        <CardTitle>Paste a new inquiry</CardTitle>
+        <CardTitle>Got a new inquiry?</CardTitle>
+        <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
+          Paste it in and ConductFlow figures out how urgent it is and drafts a reply
+          for you to review.
+        </p>
         <form onSubmit={(event) => {
           event.preventDefault();
           const form = event.currentTarget;
@@ -50,17 +54,17 @@ export function LeadInbox({ prospects, drafts, unavailable = {} }: LeadInboxProp
           run("triage", async () => {
             await submitInquiry(data);
             form.reset();
-            setNote("Inquiry triaged. Check the draft reply below.");
+            setNote("Got it. Check the draft reply below.");
           });
         }}>
-          <label style={labelStyle}>Inquiry text
+          <label style={labelStyle}>Paste the inquiry here
             <textarea name="rawInquiry" required rows={5}
-              placeholder="Paste the email, form submission, or message as-is."
+              placeholder="The email, form submission, or message, as-is."
               style={{ ...fieldStyle, resize: "vertical" }} disabled={isPending} />
           </label>
           <button type="submit" disabled={isPending}
             style={{ ...buttonStyle("primary", isPending), marginTop: "var(--space-3)" }}>
-            {isPending && busyKey === "triage" ? "Triaging…" : "Triage inquiry"}
+            {isPending && busyKey === "triage" ? "Working on it…" : "Sort this inquiry"}
           </button>
         </form>
       </Card>
