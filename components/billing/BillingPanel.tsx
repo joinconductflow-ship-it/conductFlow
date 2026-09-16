@@ -19,6 +19,16 @@ export interface BillingPanelProps {
   drafts: { id: string; client_id: string; kind: string; subject: string | null; body: string }[];
 }
 
+/**
+ * due_date is a plain calendar date (no time component), so it must not go through
+ * JS Date's UTC-midnight parsing: in any timezone behind UTC that would display the
+ * day before the actual due date. Format the y-m-d parts directly instead.
+ */
+function formatDueDate(isoDate: string): string {
+  const [year, month, day] = isoDate.slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
 export function BillingPanel({ clients, entries, invoices, drafts, unavailable = {} }: BillingPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -63,8 +73,9 @@ export function BillingPanel({ clients, entries, invoices, drafts, unavailable =
                 form.reset(); setNote("Time logged.");
               });
             }}>
-              <label style={labelStyle}>Minutes
-                <input name="minutes" type="number" min="1" max="2147483647" step="1" required disabled={isPending} style={fieldStyle} />
+              <label style={labelStyle}>How long did you spend? (minutes)
+                <input name="minutes" type="number" min="1" max="2147483647" step="1" required disabled={isPending} style={fieldStyle}
+                  placeholder="e.g. 90 for an hour and a half" />
               </label>
               <label style={labelStyle}>Note (optional)
                 <input name="note" disabled={isPending} style={fieldStyle} />
@@ -84,7 +95,9 @@ export function BillingPanel({ clients, entries, invoices, drafts, unavailable =
                 {unbilled.map((entry) => (
                   <li key={entry.id} style={{ padding: "var(--space-3) 0", borderTop: "1px solid var(--border)" }}>
                     <span className="tabular">{entry.minutes} minutes</span>
-                    {entry.created_at && <span style={{ color: "var(--faint)" }}> · {entry.created_at.slice(0, 10)} (UTC)</span>}
+                    {entry.created_at && <span style={{ color: "var(--faint)" }}>
+                      {" · "}{new Date(entry.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                    </span>}
                     {entry.note && <p style={{ color: "var(--muted)", overflowWrap: "anywhere", marginTop: "var(--space-2)" }}>{entry.note}</p>}
                   </li>
                 ))}
@@ -119,7 +132,9 @@ export function BillingPanel({ clients, entries, invoices, drafts, unavailable =
           </div>
           <p className="mono" style={{ color: "var(--faint)", overflowWrap: "anywhere", marginTop: "var(--space-2)" }}>Invoice {invoice.id.slice(0, 8).toUpperCase()}</p>
           <p className="tabular" style={{ marginTop: "var(--space-3)" }}>
-            ${(invoice.total_cents / 100).toFixed(2)} · {invoice.due_date ? `Due ${invoice.due_date}` : "No due date"}
+            ${(invoice.total_cents / 100).toFixed(2)} · {invoice.due_date
+              ? `Due ${formatDueDate(invoice.due_date)}`
+              : "No due date"}
           </p>
           <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-4)" }}>
             {invoice.status === "draft" && (
