@@ -34,6 +34,7 @@ interface ConductFlowSettings {
   clientName: string;
   clientEmail: string;
   autoSend: boolean;
+  identifiedEmail?: string;
 }
 
 const DEFAULT_SETTINGS: ConductFlowSettings = {
@@ -68,7 +69,9 @@ async function trySessionLogin(): Promise<{ ok: true; email: string } | { ok: fa
     const current = await readSettings();
     if (Object.hasOwn(body, "token")) {
       if (typeof body.token !== "string" || !body.token) return { ok: false };
-      await writeSettings({ ...current, token: body.token, clientEmail: current.clientEmail || body.email });
+      await writeSettings({ ...current, token: body.token, clientEmail: current.clientEmail || body.email, identifiedEmail: body.email });
+    } else {
+      await writeSettings({ ...current, identifiedEmail: body.email });
     }
     return { ok: true, email: body.email };
   } catch {
@@ -337,6 +340,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const incoming = (message.settings ?? {}) as Partial<ConductFlowSettings>;
       const current = await readSettings();
       const next = { ...current, ...incoming };
+      if (incoming.token !== undefined && incoming.token !== current.token) next.identifiedEmail = undefined;
       return { ok: true, settings: await writeSettings(next) };
     }
 

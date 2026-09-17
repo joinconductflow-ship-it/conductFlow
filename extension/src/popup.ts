@@ -152,6 +152,11 @@ async function loadSettings(probeSession = true): Promise<void> {
   clientNameInput.value = typeof settings.clientName === "string" ? settings.clientName : "";
   clientEmailInput.value = typeof settings.clientEmail === "string" ? settings.clientEmail : "";
   autoSendCheckbox.checked = settings.autoSend !== false;
+  const connectedAs = document.querySelector<HTMLParagraphElement>("#connected-as")!;
+  const identified = !!settings.token && typeof settings.identifiedEmail === "string" && !!settings.identifiedEmail;
+  connectedAs.hidden = !identified;
+  connectedAs.textContent = identified ? `Connected as ${settings.identifiedEmail}` : "";
+  document.querySelector<HTMLDetailsElement>("#manual-setup")!.open = !identified;
   // Setup only needs opening once, the first time, or to fix something, so leave it closed
   // when a token is already configured.
   const setup = document.querySelector<HTMLDetailsElement>("#setup")!;
@@ -176,6 +181,7 @@ saveSettingsButton.addEventListener("click", async () => {
       autoSend: autoSendCheckbox.checked,
     },
   });
+  await loadSettings(false);
   status.textContent = "Setup saved.";
   status.dataset.kind = "normal";
 });

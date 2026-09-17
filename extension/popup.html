@@ -233,8 +233,11 @@
   <body>
     <h1>Meeting Transcript</h1>
     <p class="privacy">Tab audio stays on this device. The speech model runs in Chrome.</p>
+    <p id="connected-as" class="privacy" hidden></p>
     <details id="setup">
       <summary>Setup: send transcripts to ConductFlow automatically</summary>
+      <details id="manual-setup" open>
+        <summary>Use a different token instead</summary>
       <label class="setup-field">Workspace token (from Settings &rarr; Desktop app)
         <input id="token" type="password" autocomplete="off" placeholder="cfd_…" />
       </label>
@@ -244,6 +247,7 @@
       <label class="setup-field">Client email
         <input id="client-email" type="email" autocomplete="off" placeholder="client@example.com" />
       </label>
+      </details>
       <label class="setup-row">
         <input id="auto-send" type="checkbox" />
         Send automatically when I stop capturing
