@@ -87,6 +87,7 @@
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;
+  --radius-pill: 999px;
 
   /*
    * One frame for the whole app. The nav bar and every page hang off the same left edge,
@@ -834,7 +835,7 @@ html:has(.marketing-page) { scroll-behavior: smooth; }
 .marketing-demo-processing-dot {
   animation: marketing-demo-processing 900ms ease-in-out infinite;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   height: 5px;
   width: 5px;
 }
@@ -1170,7 +1171,7 @@ html {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 2px solid transparent;
   background-clip: padding-box;
 }
@@ -1374,7 +1375,7 @@ select:hover:not(:disabled):not(:focus) {
   width: 5px;
   height: 5px;
   flex: 0 0 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
 }
 .cf-section-note {
