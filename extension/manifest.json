@@ -14,7 +14,8 @@
     "https://huggingface.co/*",
     "https://*.huggingface.co/*",
     "https://*.hf.co/*",
-    "https://conductflow-woad.vercel.app/*"
+    "https://conductflow-woad.vercel.app/*",
+    "https://conductflow.tech/*"
   ],
   "background": {
     "service_worker": "background.js",
