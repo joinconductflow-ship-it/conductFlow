@@ -10,6 +10,8 @@ interface CaptureState {
   message: string;
   progress?: number;
   tabId?: number;
+  captureId?: string;
+  suggestedClient?: { clientId: string; clientName: string; clientEmail: string } | null;
 }
 
 const STORAGE_KEY = "captureState";
@@ -180,13 +182,42 @@ async function hasOffscreenDocument(): Promise<boolean> {
   return contexts.length > 0;
 }
 
+async function suggestMeetingClient(captureId: string, startedAt: string): Promise<void> {
+  try {
+    const settings = await readSettings();
+    if (!settings.token) return;
+    const response = await fetch(`${settings.apiBase}/api/extension/current-meeting`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.token}` },
+      body: JSON.stringify({ startedAt }),
+    });
+    if (!response.ok) return;
+    const { match } = await response.json();
+    if (!match || typeof match.clientId !== "string" || typeof match.clientName !== "string" ||
+      typeof match.clientEmail !== "string") return;
+    // Merge through the message queue so a slow lookup cannot overwrite transcript updates.
+    const task = operation.then(async () => {
+      const current = await readState();
+      if (current.captureId !== captureId || !["loading_model", "capturing"].includes(current.status)) return;
+      await publishState({ ...current, suggestedClient: match });
+    });
+    operation = task.catch(() => undefined);
+    await task;
+  } catch {
+    // Calendar context is optional and must never interrupt audio capture.
+  }
+}
+
 async function startCapture(tabId: number): Promise<CaptureState> {
   const current = await readState();
   if (["starting", "loading_model", "capturing", "stopping"].includes(current.status)) {
     throw new Error("A tab capture is already in progress.");
   }
 
+  const captureId = crypto.randomUUID();
+  const startedAt = new Date().toISOString();
   await publishState({
+    captureId,
     status: "starting", transcript: "", suggestions: [],
     message: "Preparing the audio processor…", tabId,
   });
@@ -206,13 +237,16 @@ async function startCapture(tabId: number): Promise<CaptureState> {
       throw new Error(response?.error ?? "The offscreen document could not start audio capture.");
     }
 
-    return publishState({
+    const started = await publishState({
+      captureId,
       status: "loading_model",
       transcript: "",
       suggestions: [],
       message: "Capturing audio; loading the local Whisper model…",
       tabId,
     });
+    void suggestMeetingClient(captureId, startedAt);
+    return started;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await publishState({ status: "error", transcript: "", suggestions: [], message });
