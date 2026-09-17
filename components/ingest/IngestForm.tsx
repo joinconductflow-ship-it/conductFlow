@@ -150,7 +150,7 @@ export function IngestForm({ clients }: { clients: ClientContact[] }) {
       {isPending ? (
         <Card tone="accent" style={{ marginTop: "var(--space-5)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-            <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999,
+            <span aria-hidden style={{ width: 7, height: 7, borderRadius: "var(--radius-pill)",
               background: "var(--accent)", animation: "cf-pulse 1.4s ease-in-out infinite" }} />
             <span style={{ fontWeight: 600, color: "var(--accent-text)" }}>
               Reading the conversation…

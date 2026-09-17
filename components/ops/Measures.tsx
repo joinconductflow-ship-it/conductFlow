@@ -30,9 +30,9 @@ export function MeasureRow({ label, count, max, value, tone = "accent" }: {
       </div>
       {/* Neutral track, coloured fill: a tinted track spends the tone on the part of the
           bar that carries no reading, and dulls the boundary the eye actually measures. */}
-      <div aria-hidden style={{ height: 4, borderRadius: 2, marginTop: "var(--space-2)",
+      <div aria-hidden style={{ height: 4, borderRadius: "var(--radius-pill)", marginTop: "var(--space-2)",
         background: "var(--raised)", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${share * 100}%`, borderRadius: 2,
+        <div style={{ height: "100%", width: `${share * 100}%`, borderRadius: "var(--radius-pill)",
           background: `var(--${tone})` }} />
       </div>
     </div>
@@ -55,9 +55,9 @@ export function Meter({ pct, tone, filledLabel, emptyLabel }: {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <div>
-      <div style={{ height: 6, borderRadius: 3, background: "var(--raised)",
+      <div style={{ height: 6, borderRadius: "var(--radius-pill)", background: "var(--raised)",
         overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${clamped}%`, borderRadius: 3,
+        <div style={{ height: "100%", width: `${clamped}%`, borderRadius: "var(--radius-pill)",
           background: `var(--${tone})` }} />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between",
