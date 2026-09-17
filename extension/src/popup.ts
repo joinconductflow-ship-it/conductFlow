@@ -166,7 +166,7 @@ sendNowButton.addEventListener("click", async () => {
   sendNowButton.disabled = true;
   status.textContent = "Sending transcript to ConductFlow…";
   status.dataset.kind = "normal";
-  const response = await request({ type: "SEND_TRANSCRIPT", text: transcript.value });
+  const response = await request({ type: "SEND_TRANSCRIPT", text: transcript.value, override: currentOverride });
   const result = (response as { result?: { ok: boolean; message: string } }).result;
   if (result) {
     status.textContent = result.message;
