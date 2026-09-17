@@ -6,7 +6,10 @@ declare const MEETING_ASSISTANT_SECRET: string;
 
 const MODEL_ID = "Xenova/whisper-tiny.en";
 const TARGET_SAMPLE_RATE = 16_000;
-const CHUNK_SECONDS = 15;
+// Multi-threaded WASM (see numThreads below) transcribes an 8-second chunk well within
+// 8 seconds, so shortening the window from the original 15s gets words on screen roughly
+// twice as fast without the queue falling behind.
+const CHUNK_SECONDS = 8;
 const MINIMUM_FINAL_CHUNK_SECONDS = 1;
 const MAX_TRACKED_SUGGESTIONS = 20;
 
@@ -18,7 +21,7 @@ env.useBrowserCache = true;
 env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL("wasm/");
 // Extension pages (chrome-extension:// origins) are cross-origin isolated by default, so
 // SharedArrayBuffer and multi-threaded WASM are available here without extra headers. Pinning
-// this to 1 thread made whisper-tiny's per-chunk inference slower than the 15-second window it
+// this to 1 thread made whisper-tiny's per-chunk inference slower than the chunk window it
 // transcribes, so the transcript queue fell further behind the longer capture ran.
 env.backends.onnx.wasm.numThreads = typeof crossOriginIsolated !== "undefined" && crossOriginIsolated
   ? Math.min(4, navigator.hardwareConcurrency || 4)
