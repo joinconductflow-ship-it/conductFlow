@@ -325,6 +325,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.target !== "background") return false;
 
   const task = operation.then(async () => {
+    if (message.type === "AUTO_LOGIN") {
+      return { ok: true, result: await trySessionLogin() };
+    }
+
     if (message.type === "GET_SETTINGS") {
       return { ok: true, settings: await readSettings() };
     }
