@@ -44,7 +44,7 @@ export default async function DesktopSettingsPage() {
       <BackLink href="/settings">Settings</BackLink>
       <PageHeader
         title="Desktop app"
-        lede="Capture a conversation from anywhere on your Mac with a keyboard shortcut, or from the Chrome extension while you're in a call. The same token below works for both."
+        lede="Capture a conversation from anywhere on your Mac with a keyboard shortcut, or from the Chrome extension while you're in a call. The Chrome extension identifies you automatically when you are signed into ConductFlow in the same browser. For a different browser or profile, paste a token below as a fallback; these tokens also work for the Mac app."
       />
 
       <div style={columnStyle}>
