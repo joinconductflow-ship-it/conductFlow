@@ -6,7 +6,7 @@
 > end to end. Treat everything below as the intended behavior, not a confirmed one, until someone runs
 > through "Manual-test focus" below and this notice is removed or updated.
 
-A Manifest V3 Chrome extension that captures the active browser tab's audio, keeps that audio audible, and transcribes fixed 15-second chunks locally with `Xenova/whisper-tiny.en` through `@huggingface/transformers`.
+A Manifest V3 Chrome extension that captures the active browser tab's audio, keeps that audio audible, and transcribes fixed 8-second chunks locally with `Xenova/whisper-tiny.en` through `@huggingface/transformers`.
 
 No audio or transcript is sent to a transcription API. There are no API keys and no per-use charges. On first use, the model files are downloaded from the Hugging Face Hub and cached by the browser for later use. The first download can take a while; the popup shows model-download progress when the library reports it.
 
@@ -44,14 +44,25 @@ These values are compiled into the extension bundle at build time, so rebuild af
 
 Chrome 116 or newer is required. The extension captures only the selected browser tab: it does not use the microphone, capture system-wide audio, or save audio recordings.
 
+## Sending transcripts to ConductFlow automatically
+
+Open the popup's **Setup** section once and fill in:
+
+- **Workspace token** — the same token minted at `/settings/desktop` for the Mac desktop app. This extension calls the identical `/api/desktop/execute` endpoint.
+- **Client name** and **client email** — which client this capture's commitments should be filed under.
+- **Send automatically when I stop capturing** — checked by default. When on, the finished transcript is submitted the moment you click Stop; no copy-paste into `/ingest` needed.
+
+Setup only needs opening once; it stays collapsed on later opens once a token is saved. If auto-send is off, or a send fails, use the **Send to ConductFlow** button under the transcript to submit (or retry) manually at any time.
+
 ## Phase 1 behavior
 
-- Audio is mixed to mono, divided into approximately 15-second windows, resampled to 16 kHz, and transcribed sequentially.
+- Audio is mixed to mono, divided into approximately 8-second windows, resampled to 16 kHz, and transcribed sequentially.
+- The Whisper model starts loading as soon as the popup is opened, before Start is clicked, so the first chunk after Start doesn't wait through the one-time load.
 - Closing the popup does not stop capture. Reopen it to see the accumulated transcript or stop.
-- Stopping waits for queued audio chunks to finish, including a final partial chunk of at least one second.
-- The transcript and meeting-assistant suggestions are kept in `chrome.storage.local` so the popup can be reopened without losing them.
+- Stopping waits for queued audio chunks to finish, including a final partial chunk of at least one second, then auto-sends the transcript if that setting is on.
+- The transcript, meeting-assistant suggestions, and workspace setup are kept in `chrome.storage.local` so the popup can be reopened without losing them.
 - Only one tab capture is supported at a time.
 
 ## Manual-test focus
 
-Test the capture path on a normal HTTPS meeting/media tab, confirm the tab remains audible while capture is active, wait through the one-time model download, verify new text appears after the first roughly 15-second chunk, and test both explicit Stop and closing the captured tab.
+Test the capture path on a normal HTTPS meeting/media tab, confirm the tab remains audible while capture is active, wait through the one-time model download, verify new text appears after the first roughly 8-second chunk, test both explicit Stop and closing the captured tab, and confirm a stopped capture with auto-send on lands as a real commitment in the ConductFlow queue.
