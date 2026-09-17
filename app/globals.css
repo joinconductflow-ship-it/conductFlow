@@ -77,10 +77,17 @@
   --space-6: 32px;
   --space-7: 48px;
 
-  /* Small radii: a surface should read as a plane with a cut corner, not as a pill. */
-  --radius-sm: 4px;
-  --radius: 6px;
-  --radius-lg: 8px;
+  /*
+   * Radii are generous enough to read as softness rather than as a cut corner. The scale
+   * is geometric, not linear: a 6px chip next to a 14px panel keeps the nesting legible,
+   * where three near-identical values would just look imprecise. Anything that should be
+   * a pill or a circle says so with --radius-pill or 50%, never by picking a number large
+   * enough to round its own height.
+   */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
 
   /*
    * One frame for the whole app. The nav bar and every page hang off the same left edge,
@@ -828,7 +835,7 @@ html:has(.marketing-page) { scroll-behavior: smooth; }
 .marketing-demo-processing-dot {
   animation: marketing-demo-processing 900ms ease-in-out infinite;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   height: 5px;
   width: 5px;
 }
@@ -1164,7 +1171,7 @@ html {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 2px solid transparent;
   background-clip: padding-box;
 }
@@ -1320,7 +1327,7 @@ select:hover:not(:disabled):not(:focus) {
   right: 9px;
   bottom: -1px;
   height: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
 }
 .cf-nav-more-current {
@@ -1368,7 +1375,7 @@ select:hover:not(:disabled):not(:focus) {
   width: 5px;
   height: 5px;
   flex: 0 0 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
 }
 .cf-section-note {

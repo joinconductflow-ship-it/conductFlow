@@ -80,7 +80,8 @@ export function TaskCalendar({ items, nowIso }: { items: BoardTask[]; nowIso: st
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
           <div role="group" aria-label="Calendar navigation" style={{ display: "inline-flex",
-            border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden" }}>
+            border: "1px solid var(--border)", borderRadius: "var(--radius-pill)",
+            overflow: "hidden" }}>
             <button type="button" aria-label="Previous month" style={navButtonStyle}
               onClick={() => setCursor((month) => add(month, { months: -1 }))}>
               <ChevronLeft size={16} />
@@ -130,7 +131,7 @@ export function TaskCalendar({ items, nowIso }: { items: BoardTask[]; nowIso: st
                     aria-pressed={selectedDay} aria-current={currentDay ? "date" : undefined}
                     onClick={() => setSelected(day)} style={{
                       display: "inline-flex", width: 26, height: 26, alignItems: "center",
-                      justifyContent: "center", flexShrink: 0, padding: 0, border: 0, borderRadius: 999,
+                      justifyContent: "center", flexShrink: 0, padding: 0, border: 0, borderRadius: "var(--radius-pill)",
                       background: highlighted ? "var(--accent)" : "transparent",
                       color: highlighted ? "#fff" : "var(--faint)", cursor: "pointer",
                       fontSize: "var(--text-xs)", fontWeight: highlighted ? 700 : 400,
@@ -168,7 +169,7 @@ export function TaskCalendar({ items, nowIso }: { items: BoardTask[]; nowIso: st
                   {tasks.length > 0 && (
                     <div className="task-calendar-dots" aria-hidden>
                       {tasks.slice(0, 4).map((task) => (
-                        <span key={task.id} style={{ width: 5, height: 5, borderRadius: 999,
+                        <span key={task.id} style={{ width: 5, height: 5, borderRadius: "var(--radius-pill)",
                           background: COLORS[urgencyOf(task, today)] }} />
                       ))}
                     </div>
@@ -201,6 +202,9 @@ export function TaskCalendar({ items, nowIso }: { items: BoardTask[]; nowIso: st
 
 const navButtonStyle: CSSProperties = {
   width: 32, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center",
+  // Square on purpose: the role="group" wrapper above is the pill, and it clips these
+  // with overflow: hidden. A radius here would be invisible at the ends and would break
+  // the seam between the three buttons in the middle.
   background: "var(--raised)", border: 0, borderRadius: 0,
   color: "var(--text)", cursor: "pointer", fontSize: "var(--text-sm)",
 };

@@ -121,7 +121,7 @@ export function CardTitle({ children, tone = "neutral", dot = false }: {
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)",
       color: tone === "neutral" ? "var(--text)" : t.fg,
       fontWeight: 600, fontSize: "var(--text-base)", letterSpacing: "-0.01em" }}>
-      {dot && <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999,
+      {dot && <span aria-hidden style={{ width: 7, height: 7, borderRadius: "var(--radius-pill)",
         background: t.mark, flexShrink: 0 }} />}
       {children}
     </div>
@@ -150,7 +150,7 @@ export function StatusPill({ tone, label }: { tone: Tone; label: string }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)",
       fontSize: "var(--text-sm)", color: "var(--muted)", whiteSpace: "nowrap" }}>
-      <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: t.mark,
+      <span aria-hidden style={{ width: 7, height: 7, borderRadius: "var(--radius-pill)", background: t.mark,
         flexShrink: 0 }} />
       {label}
     </span>

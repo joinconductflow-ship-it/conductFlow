@@ -36,7 +36,7 @@ function Segmented({ options, value, onChange, name, disabled }: {
             disabled={disabled}
             onClick={() => onChange(o.value)}
             style={{
-              border: 0, borderRadius: 3, padding: "5px 12px",
+              border: 0, borderRadius: "var(--radius-sm)", padding: "5px 12px",
               fontSize: "var(--text-sm)", fontWeight: active ? 600 : 400,
               // The inactive half defers to the shared button variables, so it picks up
               // the same hover the rest of the app's controls have.
@@ -150,7 +150,7 @@ export function IngestForm({ clients }: { clients: ClientContact[] }) {
       {isPending ? (
         <Card tone="accent" style={{ marginTop: "var(--space-5)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-            <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999,
+            <span aria-hidden style={{ width: 7, height: 7, borderRadius: "var(--radius-pill)",
               background: "var(--accent)", animation: "cf-pulse 1.4s ease-in-out infinite" }} />
             <span style={{ fontWeight: 600, color: "var(--accent-text)" }}>
               Reading the conversation…

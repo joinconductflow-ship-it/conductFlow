@@ -18,7 +18,7 @@ const CHECK_TIMEOUT_MS = 12_000;
 
 const cardStyle: CSSProperties = {
   border: "1px solid var(--border-strong, #444)",
-  borderRadius: 10,
+  borderRadius: "var(--radius-lg, 14px)",
   padding: 14,
   background: "var(--raised, #1c1c1f)",
   color: "var(--text, #eee)",
@@ -36,7 +36,7 @@ function actionButton(kind: "approve" | "reject"): CSSProperties {
   return {
     flex: 1,
     padding: "8px 12px",
-    borderRadius: 8,
+    borderRadius: "var(--radius, 10px)",
     border: kind === "approve" ? "none" : "1px solid var(--border-strong, #444)",
     // CopilotKit scopes its own `--accent` token to a near-white surface inside the sidebar.
     // Use the app accent-text token so Approve remains visibly actionable there.
@@ -104,7 +104,7 @@ const ACTION_TITLE: Record<ProposalArgs["actionType"], string> = {
 const fieldStyle: CSSProperties = {
   width: "100%",
   padding: "5px 7px",
-  borderRadius: 6,
+  borderRadius: "var(--radius-sm, 6px)",
   border: "1px solid var(--border-strong, #444)",
   background: "var(--surface, #111)",
   color: "var(--text, #eee)",

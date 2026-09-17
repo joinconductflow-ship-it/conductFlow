@@ -17,7 +17,7 @@ function badgeStyle(value: string) {
   const urgent = value === "negative" || value === "high";
   return {
     color: urgent ? "var(--danger-text)" : "var(--muted)", border: "1px solid currentColor",
-    borderRadius: "999px", fontSize: "0.75rem", padding: "0.1rem 0.45rem",
+    borderRadius: "var(--radius-pill)", fontSize: "0.75rem", padding: "0.1rem 0.45rem",
   };
 }
 
