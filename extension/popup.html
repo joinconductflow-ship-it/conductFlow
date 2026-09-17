@@ -259,6 +259,18 @@
       <button id="start" type="button">Start capturing this tab</button>
       <button id="stop" type="button" disabled>Stop</button>
     </div>
+    <section id="meeting-client" hidden aria-live="polite">
+      <p class="privacy"><span id="meeting-client-label"></span> <button id="change-client" type="button">Change</button></p>
+      <form id="client-override-form" hidden>
+        <label class="setup-field">Client name
+          <input id="override-name" type="text" autocomplete="off" />
+        </label>
+        <label class="setup-field">Client email
+          <input id="override-email" type="email" autocomplete="off" required />
+        </label>
+        <button type="submit">Use for this capture</button>
+      </form>
+    </section>
     <div id="suggestions" aria-live="polite">
       <h2>Things to ask</h2>
       <ul id="suggestion-list" hidden></ul>

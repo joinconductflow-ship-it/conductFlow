@@ -9,6 +9,8 @@ interface CaptureState {
   suggestions: string[];
   message: string;
   progress?: number;
+  captureId?: string;
+  suggestedClient?: { clientId: string; clientName: string; clientEmail: string } | null;
 }
 
 interface RuntimeResponse {
@@ -40,7 +42,41 @@ const status = document.querySelector<HTMLDivElement>("#status")!;
 const suggestionList = document.querySelector<HTMLUListElement>("#suggestion-list")!;
 const suggestionEmpty = document.querySelector<HTMLParagraphElement>("#suggestion-empty")!;
 
+const meetingClient = document.querySelector<HTMLElement>("#meeting-client")!;
+const meetingClientLabel = document.querySelector<HTMLElement>("#meeting-client-label")!;
+const overrideForm = document.querySelector<HTMLFormElement>("#client-override-form")!;
+const overrideName = document.querySelector<HTMLInputElement>("#override-name")!;
+const overrideEmail = document.querySelector<HTMLInputElement>("#override-email")!;
+let currentOverride: { clientName: string; clientEmail: string } | undefined;
+let currentCaptureId: string | undefined;
+let currentSuggestion: CaptureState["suggestedClient"];
+
+document.querySelector<HTMLButtonElement>("#change-client")!.addEventListener("click", () => {
+  const client = currentOverride ?? currentSuggestion;
+  if (!client) return;
+  overrideName.value = client.clientName;
+  overrideEmail.value = client.clientEmail;
+  overrideForm.hidden = false;
+  overrideName.focus();
+});
+overrideForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  currentOverride = { clientName: overrideName.value.trim(), clientEmail: overrideEmail.value.trim() };
+  meetingClientLabel.textContent = `Meeting with: ${currentOverride.clientName || currentOverride.clientEmail}`;
+  overrideForm.hidden = true;
+});
+
 function render(state: CaptureState): void {
+  if (state.captureId !== currentCaptureId) {
+    currentOverride = undefined;
+    overrideForm.hidden = true;
+    currentCaptureId = state.captureId;
+  }
+  currentSuggestion = state.suggestedClient;
+  const client = currentOverride ?? currentSuggestion;
+  meetingClient.hidden = !currentSuggestion || (!state.transcript &&
+    !["starting", "loading_model", "capturing", "stopping"].includes(state.status));
+  meetingClientLabel.textContent = client ? `Meeting with: ${client.clientName || client.clientEmail}` : "";
   transcript.value = state.transcript;
   transcript.scrollTop = transcript.scrollHeight;
 
