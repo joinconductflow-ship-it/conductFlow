@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type UnmatchedProvider = "google" | "slack";
+export type UnmatchedProvider = "google" | "slack" | "microsoft";
 export type UnmatchedSourceType = "email" | "channel";
 export interface UnmatchedSourceInput {
   orgId: string; provider: UnmatchedProvider; sourceType: UnmatchedSourceType;

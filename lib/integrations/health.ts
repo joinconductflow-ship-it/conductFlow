@@ -37,3 +37,9 @@ export function slackHealthMessage(health: IntegrationHealth): string | null {
   if (health === "connection_issue") return "Couldn't load Slack channels right now. Try reloading channels.";
   return null;
 }
+
+export function microsoftHealthMessage(health: IntegrationHealth): string | null {
+  if (health === "needs_reconnect") return "Microsoft needs to be reconnected before ConductFlow can read channels.";
+  if (health === "connection_issue") return "Couldn't load Teams channels right now. Try reloading channels.";
+  return null;
+}

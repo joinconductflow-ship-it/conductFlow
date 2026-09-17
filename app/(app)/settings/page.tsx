@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { MicrosoftConnections } from "@/components/settings/MicrosoftConnections";
+import { listTeamsChannelMappings } from "@/app/actions/microsoft-teams";
+import { storedHealth } from "@/lib/integrations/health";
 import { SlackConnections } from "@/components/settings/SlackConnections";
 import { listChannelMappings } from "@/app/actions/slack-channels";
 import { getCurrentOrgId, listClients } from "@/lib/db/queries";
@@ -60,6 +63,13 @@ export default async function SettingsPage({ searchParams }:
     readPageData("/settings: clients", () => slackRows.length ? listClients(orgId) : Promise.resolve([])),
     readPageData("/settings: Slack mappings", () => slackRows.length ? listChannelMappings(orgId) : Promise.resolve([])),
   ]);
+  // Microsoft discovery verifies live health in its own connection card.
+  const microsoftRows = rows.filter((row) => row.provider === "microsoft")
+    .map((row) => ({ ...row, health: storedHealth(row) }));
+  const [microsoftClients, teamsMappings] = await Promise.all([
+    readPageData("/settings: Microsoft clients", () => microsoftRows.length ? listClients(orgId) : Promise.resolve([])),
+    readPageData("/settings: Teams mappings", () => microsoftRows.length ? listTeamsChannelMappings(orgId) : Promise.resolve([])),
+  ]);
   const granted = new Set(googleRows.filter((r) => r.state === "active").flatMap((r) => r.scopes));
 
   const capabilities = (Object.keys(CAPABILITIES) as Capability[]).map((key) => ({
@@ -103,6 +113,14 @@ export default async function SettingsPage({ searchParams }:
           ? <Unavailable section="Slack connections are" />
           : <SlackConnections orgId={orgId} connections={slackRows} clients={clients.data ?? []}
             mappings={(mappings.data ?? []).filter((mapping) => slackRows.some((row) => row.id === mapping.connected_data_source_id))} />}
+      </div>
+
+      <div style={{ marginTop: "var(--space-7)" }}>
+        <SectionHeading>Microsoft</SectionHeading>
+        {connections.unavailable || microsoftClients.unavailable || teamsMappings.unavailable
+          ? <Unavailable section="Microsoft connections are" />
+          : <MicrosoftConnections orgId={orgId} connections={microsoftRows} clients={microsoftClients.data ?? []}
+            mappings={(teamsMappings.data ?? []).filter((mapping) => microsoftRows.some((row) => row.id === mapping.connected_data_source_id))} />}
       </div>
 
       <div style={{ marginTop: "var(--space-7)" }}>
