@@ -77,10 +77,16 @@
   --space-6: 32px;
   --space-7: 48px;
 
-  /* Small radii: a surface should read as a plane with a cut corner, not as a pill. */
-  --radius-sm: 4px;
-  --radius: 6px;
-  --radius-lg: 8px;
+  /*
+   * Radii are generous enough to read as softness rather than as a cut corner. The scale
+   * is geometric, not linear: a 6px chip next to a 14px panel keeps the nesting legible,
+   * where three near-identical values would just look imprecise. Anything that should be
+   * a pill or a circle says so with --radius-pill or 50%, never by picking a number large
+   * enough to round its own height.
+   */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
 
   /*
    * One frame for the whole app. The nav bar and every page hang off the same left edge,
