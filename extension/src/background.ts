@@ -55,6 +55,59 @@ async function writeSettings(settings: ConductFlowSettings): Promise<ConductFlow
   return settings;
 }
 
+interface SendResult {
+  ok: boolean;
+  message: string;
+  commitmentCount?: number;
+}
+
+/**
+ * Same endpoint the packaged Mac app calls. The bearer token proves which workspace this
+ * is, org id is resolved server-side from it and never trusted from this request body, so
+ * there is nothing extra to secure here beyond keeping the token itself private.
+ */
+async function sendTranscript(text: string, title: string): Promise<SendResult> {
+  const settings = await readSettings();
+  if (!settings.token) {
+    return { ok: false, message: "No workspace token configured yet, open Setup above." };
+  }
+  if (!settings.clientEmail) {
+    return { ok: false, message: "Add a client email in Setup, ConductFlow needs one to file this under." };
+  }
+
+  try {
+    const response = await fetch(`${settings.apiBase}/api/desktop/execute`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${settings.token}`,
+      },
+      body: JSON.stringify({
+        text,
+        clientName: settings.clientName || settings.clientEmail,
+        clientEmail: settings.clientEmail,
+        title,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = typeof payload.error === "string" ? payload.error : `HTTP ${response.status}`;
+      return { ok: false, message: `ConductFlow rejected the transcript: ${detail}` };
+    }
+    const count = typeof payload.commitmentCount === "number" ? payload.commitmentCount : 0;
+    return {
+      ok: true,
+      commitmentCount: count,
+      message: count > 0
+        ? `Sent — ${count} commitment${count === 1 ? "" : "s"} waiting for your approval in the queue.`
+        : "Sent to ConductFlow. Nothing that looked like a commitment was found this time.",
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { ok: false, message: `Could not reach ConductFlow: ${detail}` };
+  }
+}
+
 let creatingOffscreenDocument: Promise<void> | null = null;
 let operation: Promise<unknown> = Promise.resolve();
 
@@ -269,6 +322,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === "STOP_CAPTURE") {
       return { ok: true, state: await stopCapture() };
+    }
+
+    if (message.type === "SEND_TRANSCRIPT") {
+      const current = await readState();
+      const text = typeof message.text === "string" ? message.text : current.transcript;
+      const title = `Meeting captured ${new Date().toLocaleDateString()}`;
+      return { ok: true, result: await sendTranscript(text, title) };
     }
 
     if (typeof message.type === "string") {
