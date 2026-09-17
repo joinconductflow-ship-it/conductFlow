@@ -13,6 +13,7 @@ interface CaptureState {
 }
 
 const STORAGE_KEY = "captureState";
+const SETTINGS_KEY = "conductflowSettings";
 const OFFSCREEN_PATH = "offscreen.html";
 const INITIAL_STATE: CaptureState = {
   status: "idle",
@@ -20,6 +21,39 @@ const INITIAL_STATE: CaptureState = {
   suggestions: [],
   message: "Ready.",
 };
+
+/**
+ * Configured once, in the popup's Setup section, and reused for every capture after that.
+ * The token is the same kind minted at /settings/desktop for the Mac app — this extension
+ * authenticates against the identical /api/desktop/execute endpoint, no separate backend
+ * route needed for it.
+ */
+interface ConductFlowSettings {
+  apiBase: string;
+  token: string;
+  clientName: string;
+  clientEmail: string;
+  autoSend: boolean;
+}
+
+const DEFAULT_SETTINGS: ConductFlowSettings = {
+  apiBase: "https://conductflow.tech",
+  token: "",
+  clientName: "",
+  clientEmail: "",
+  autoSend: true,
+};
+
+async function readSettings(): Promise<ConductFlowSettings> {
+  const stored = await chrome.storage.local.get(SETTINGS_KEY);
+  const settings = stored[SETTINGS_KEY] as Partial<ConductFlowSettings> | undefined;
+  return { ...DEFAULT_SETTINGS, ...settings };
+}
+
+async function writeSettings(settings: ConductFlowSettings): Promise<ConductFlowSettings> {
+  await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+  return settings;
+}
 
 let creatingOffscreenDocument: Promise<void> | null = null;
 let operation: Promise<unknown> = Promise.resolve();
@@ -204,6 +238,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.target !== "background") return false;
 
   const task = operation.then(async () => {
+    if (message.type === "GET_SETTINGS") {
+      return { ok: true, settings: await readSettings() };
+    }
+
+    if (message.type === "SET_SETTINGS") {
+      const incoming = (message.settings ?? {}) as Partial<ConductFlowSettings>;
+      const current = await readSettings();
+      const next = { ...current, ...incoming };
+      return { ok: true, settings: await writeSettings(next) };
+    }
+
     if (message.type === "GET_STATE") {
       let state = await readState();
       if (["starting", "loading_model", "capturing", "stopping"].includes(state.status) && !(await hasOffscreenDocument())) {

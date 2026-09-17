@@ -159,11 +159,83 @@
       #copy:not(:disabled):hover {
         background: var(--raised-hover);
       }
+
+      details#setup {
+        margin-bottom: 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        padding: 8px 10px;
+        background: var(--surface);
+      }
+
+      details#setup summary {
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 650;
+        color: var(--muted);
+      }
+
+      .setup-field {
+        display: block;
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .setup-field input {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 3px;
+        padding: 6px 8px;
+        font: 12px ui-sans-serif, system-ui, sans-serif;
+        color: var(--text);
+        background: var(--raised);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius);
+      }
+
+      .setup-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      #save-settings {
+        margin-top: 10px;
+        width: 100%;
+        color: var(--text);
+        background: var(--raised);
+        border-color: var(--border-strong);
+      }
+      #save-settings:hover {
+        background: var(--raised-hover);
+      }
     </style>
   </head>
   <body>
     <h1>Meeting Transcript</h1>
     <p class="privacy">Tab audio stays on this device. The speech model runs in Chrome.</p>
+    <details id="setup">
+      <summary>Setup: send transcripts to ConductFlow automatically</summary>
+      <label class="setup-field">Workspace token (from Settings &rarr; Desktop app)
+        <input id="token" type="password" autocomplete="off" placeholder="cfd_…" />
+      </label>
+      <label class="setup-field">Client name
+        <input id="client-name" type="text" autocomplete="off" placeholder="e.g. Priya Sharma" />
+      </label>
+      <label class="setup-field">Client email
+        <input id="client-email" type="email" autocomplete="off" placeholder="client@example.com" />
+      </label>
+      <label class="setup-row">
+        <input id="auto-send" type="checkbox" />
+        Send automatically when I stop capturing
+      </label>
+      <button id="save-settings" type="button">Save setup</button>
+    </details>
     <div id="status" class="status" role="status" aria-live="polite">Ready.</div>
     <div class="controls">
       <button id="start" type="button">Start capturing this tab</button>

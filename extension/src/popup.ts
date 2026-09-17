@@ -17,6 +17,12 @@ interface RuntimeResponse {
   error?: string;
 }
 
+const tokenInput = document.querySelector<HTMLInputElement>("#token")!;
+const clientNameInput = document.querySelector<HTMLInputElement>("#client-name")!;
+const clientEmailInput = document.querySelector<HTMLInputElement>("#client-email")!;
+const autoSendCheckbox = document.querySelector<HTMLInputElement>("#auto-send")!;
+const saveSettingsButton = document.querySelector<HTMLButtonElement>("#save-settings")!;
+
 const startButton = document.querySelector<HTMLButtonElement>("#start")!;
 const stopButton = document.querySelector<HTMLButtonElement>("#stop")!;
 const copyButton = document.querySelector<HTMLButtonElement>("#copy")!;
@@ -109,6 +115,34 @@ copyButton.addEventListener("click", async () => {
   }
 });
 
+async function loadSettings(): Promise<void> {
+  const response = await request({ type: "GET_SETTINGS" });
+  const settings = (response as { settings?: Record<string, unknown> }).settings;
+  if (!settings) return;
+  tokenInput.value = typeof settings.token === "string" ? settings.token : "";
+  clientNameInput.value = typeof settings.clientName === "string" ? settings.clientName : "";
+  clientEmailInput.value = typeof settings.clientEmail === "string" ? settings.clientEmail : "";
+  autoSendCheckbox.checked = settings.autoSend !== false;
+  // Setup only needs opening once, the first time, or to fix something, so leave it closed
+  // when a token is already configured.
+  const setup = document.querySelector<HTMLDetailsElement>("#setup")!;
+  setup.open = !tokenInput.value;
+}
+
+saveSettingsButton.addEventListener("click", async () => {
+  await request({
+    type: "SET_SETTINGS",
+    settings: {
+      token: tokenInput.value.trim(),
+      clientName: clientNameInput.value.trim(),
+      clientEmail: clientEmailInput.value.trim(),
+      autoSend: autoSendCheckbox.checked,
+    },
+  });
+  status.textContent = "Setup saved.";
+  status.dataset.kind = "normal";
+});
+
 chrome.runtime.onMessage.addListener((message) => {
   if (message.target === "popup" && message.type === "STATE_UPDATED") {
     render(message.state as CaptureState);
@@ -116,3 +150,4 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 void refresh();
+void loadSettings();
