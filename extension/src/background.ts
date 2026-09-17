@@ -55,6 +55,27 @@ async function writeSettings(settings: ConductFlowSettings): Promise<ConductFlow
   return settings;
 }
 
+/** Best-effort identification using this browser's existing ConductFlow session. */
+async function trySessionLogin(): Promise<{ ok: true; email: string } | { ok: false }> {
+  try {
+    const settings = await readSettings();
+    const response = await fetch(`${settings.apiBase}/api/extension/session`, {
+      credentials: "include",
+    });
+    if (response.status !== 200) return { ok: false };
+    const body = await response.json();
+    if (!body || typeof body.email !== "string" || !body.email.trim()) return { ok: false };
+    const current = await readSettings();
+    if (Object.hasOwn(body, "token")) {
+      if (typeof body.token !== "string" || !body.token) return { ok: false };
+      await writeSettings({ ...current, token: body.token, clientEmail: current.clientEmail || body.email });
+    }
+    return { ok: true, email: body.email };
+  } catch {
+    return { ok: false };
+  }
+}
+
 interface SendResult {
   ok: boolean;
   message: string;
