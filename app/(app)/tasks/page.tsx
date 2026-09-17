@@ -3,6 +3,7 @@ import { readPageData } from "@/lib/db/page-read";
 import { Unavailable } from "@/components/ui/Unavailable";
 import {
   getCurrentOrgId, listBoardTasks, listOpenReminders, loadOperationsData,
+  listTaskIntelligenceForTasks,
 } from "@/lib/db/queries";
 import { detectRecurring } from "@/lib/ops/recurring";
 import { RecurringSuggestions } from "@/components/tasks/RecurringSuggestions";
@@ -31,6 +32,10 @@ export default async function TasksPage() {
     readPageData("/tasks: recurring data", () => loadOperationsData(orgId, "/tasks")),
   ]);
   const tasks = board.data ?? [];
+  const intelligence = await readPageData(
+    "/tasks: task intelligence",
+    () => listTaskIntelligenceForTasks(orgId, tasks.map((task) => task.id)),
+  );
   const opsData = operations.data;
   const recurringUnavailable = !opsData || Object.values(opsData.unavailable).some(Boolean);
 
@@ -78,7 +83,7 @@ export default async function TasksPage() {
             style={buttonStyle("primary")}>Go to the queue</Link>}
         />
       ) : (
-        <TaskViews items={tasks} nowIso={now.toISOString()} />
+        <TaskViews items={tasks} nowIso={now.toISOString()} intelligenceByTaskId={intelligence.data ?? {}} />
       )}
 
       {recurringUnavailable ? <Unavailable section="Recurring suggestions are" /> : <RecurringSuggestions patterns={suggestions} />}

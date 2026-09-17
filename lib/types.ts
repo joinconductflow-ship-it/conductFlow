@@ -128,3 +128,83 @@ export interface Transcript {
   injection_flags: string[]; extraction_status: ExtractionStatus;
   extraction_error: string | null;
 }
+
+export type TaskIntelligenceSubjectType = "commitment" | "task";
+export type TaskIntelligenceState = "pending" | "processing" | "ready" | "failed";
+
+export interface TaskIntelligenceRecommendation {
+  text: string;
+  basis: string;
+  category: "review" | "follow_up" | "prepare_document" | "schedule" | "clarify" | "none";
+  action_kind: SuggestedActionType | "review" | "none";
+  evidence_refs: string[];
+}
+
+export interface TaskIntelligenceUsefulAction {
+  kind: "gmail_draft" | "drive_document" | "calendar_event" | "review" | "none";
+  text: string;
+  basis: string;
+  evidence_refs: string[];
+}
+
+export type TaskIntelligenceAttentionCode =
+  | "overdue"
+  | "missing_owner"
+  | "missing_due"
+  | "action_failed"
+  | "action_blocked";
+
+export interface TaskIntelligenceAttentionReason {
+  code: TaskIntelligenceAttentionCode;
+  text: string;
+  basis: string;
+  evidence_refs: string[];
+}
+
+export interface TaskIntelligenceGeneratedText {
+  text: string;
+  basis: string;
+  evidence_refs: string[];
+}
+
+export interface TaskIntelligenceProvenance {
+  kind: "source_fact" | "model_inference" | "task_state";
+  evidence_refs: string[];
+}
+
+export interface TaskIntelligenceSource {
+  kind: "transcript_span";
+  conversation_id: string;
+  transcript_id: string;
+  commitment_id: string;
+  source_span: string;
+  source_quote: string | null;
+  start: number | null;
+  end: number | null;
+  verified: boolean;
+  ambiguous: boolean;
+}
+
+export interface TaskIntelligence {
+  id: string;
+  org_id: string;
+  subject_type: TaskIntelligenceSubjectType;
+  subject_id: string;
+  commitment_id: string;
+  task_id: string | null;
+  generation_version: string;
+  input_fingerprint: string;
+  state: TaskIntelligenceState;
+  context: TaskIntelligenceGeneratedText | null;
+  why_it_matters: TaskIntelligenceGeneratedText | null;
+  recommendation: TaskIntelligenceRecommendation | null;
+  useful_existing_action: TaskIntelligenceUsefulAction | null;
+  attention_reason: TaskIntelligenceAttentionReason | null;
+  source: TaskIntelligenceSource | null;
+  source_facts: unknown[];
+  inferences: unknown[];
+  provenance: Record<string, TaskIntelligenceProvenance>;
+  generated_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

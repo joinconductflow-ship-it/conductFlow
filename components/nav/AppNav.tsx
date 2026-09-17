@@ -115,13 +115,6 @@ export function AppNav({ email }: { email: string | null }) {
               fontSize: "var(--text-sm)" }}>
             Add transcript
           </Link>
-          <Link href="/copilot" className="cf-btn cf-nav-copilot"
-            aria-label="Open Copilot" title="Open Copilot"
-            style={{ ...buttonStyle("ghost"), color: "var(--accent-text)", height: 28,
-              fontSize: "var(--text-sm)", paddingInline: "var(--space-2)" }}>
-            <span aria-hidden>✦</span>
-            <span className="cf-nav-copilot-label">Copilot</span>
-          </Link>
           {email && (
             <span className="mono" title={email} style={{ color: "var(--faint)",
               fontSize: "var(--text-xs)", paddingInline: "var(--space-2)",

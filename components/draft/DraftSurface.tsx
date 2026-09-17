@@ -18,10 +18,15 @@ export function DraftSurface({ draft, provenance, expectsEmailDraft }:
         gap: "var(--space-3)", flexWrap: "wrap",
         padding: "var(--space-3) var(--space-4)",
         borderBottom: "1px solid var(--border)" }}>
-        <span className="mono" style={{ color: "var(--accent-text)", fontWeight: 600,
-          fontSize: "var(--text-xs)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          Drafted by ConductFlow
-        </span>
+        <div style={{ display: "grid", gap: 2 }}>
+          <span className="mono" style={{ color: "var(--accent-text)", fontWeight: 600,
+            fontSize: "var(--text-xs)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Draft
+          </span>
+          <span style={{ color: "var(--muted)", fontSize: "var(--text-xs)" }}>
+            Prepared by ConductFlow
+          </span>
+        </div>
         <Badge tone="neutral" title="ConductFlow has no ability to send mail at all">
           never auto-sends
         </Badge>

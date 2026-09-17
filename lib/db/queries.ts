@@ -5,6 +5,7 @@ import { readPageQuery } from "./page-read";
 import type {
   Commitment,
   CommitmentActionSuggestion,
+  TaskIntelligence,
   DeliverableDraft,
   Transcript,
   Task,
@@ -117,10 +118,33 @@ export async function getTranscriptForCommitment(commitmentId: string): Promise<
   return (data ?? null) as Transcript | null;
 }
 
+export async function getTaskForCommitment(taskId: string, commitmentId: string): Promise<{ id: string; org_id: string; commitment_id: string } | null> {
+  const s = await getServerClient();
+  const { data, error } = await s.from("task").select("id,org_id,commitment_id")
+    .eq("id", taskId).eq("commitment_id", commitmentId).maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as { id: string; org_id: string; commitment_id: string } | null;
+}
+
 export interface BoardTask {
   id: string; commitment_id: string; title: string;
   owner: string | null; due: string | null; status: TaskStatus;
   completed_at: string | null; client_name: string;
+}
+
+export async function listTaskIntelligenceForTasks(
+  orgId: string,
+  taskIds: string[],
+): Promise<Record<string, TaskIntelligence>> {
+  if (taskIds.length === 0) return {};
+  const s = await getServerClient();
+  const { data, error } = await s.from("task_intelligence").select("*")
+    .eq("org_id", orgId).eq("subject_type", "task").in("subject_id", taskIds);
+  if (error) throw error;
+  return Object.fromEntries((data ?? []).map((row) => [
+    String((row as { subject_id: string }).subject_id),
+    row as unknown as TaskIntelligence,
+  ]));
 }
 
 /** Board rows: the task plus the client it was promised to and the commitment it came from. */

@@ -5,10 +5,19 @@ import { motion, AnimatePresence } from "framer-motion";
 import { TaskBoard } from "./TaskBoard";
 import { TaskCalendar } from "./TaskCalendar";
 import type { BoardTask } from "@/lib/db/queries";
+import type { TaskIntelligence } from "@/lib/types";
 
 type View = "calendar" | "board";
 
-export function TaskViews({ items, nowIso }: { items: BoardTask[]; nowIso: string }) {
+export function TaskViews({
+  items,
+  nowIso,
+  intelligenceByTaskId = {},
+}: {
+  items: BoardTask[];
+  nowIso: string;
+  intelligenceByTaskId?: Record<string, TaskIntelligence>;
+}) {
   const [view, setView] = useState<View>("calendar");
 
   return (
@@ -40,7 +49,7 @@ export function TaskViews({ items, nowIso }: { items: BoardTask[]; nowIso: strin
         >
           {view === "calendar"
             ? <TaskCalendar items={items} nowIso={nowIso} />
-            : <TaskBoard items={items} nowIso={nowIso} />}
+            : <TaskBoard items={items} nowIso={nowIso} intelligenceByTaskId={intelligenceByTaskId} />}
         </motion.div>
       </AnimatePresence>
     </div>

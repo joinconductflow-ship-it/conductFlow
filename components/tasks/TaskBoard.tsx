@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { setTaskStatus } from "@/app/actions/tasks";
 import { Badge, SectionHeading, StatusPill, buttonStyle } from "@/components/ui/primitives";
 import type { BoardTask } from "@/lib/db/queries";
+import type { TaskIntelligence } from "@/lib/types";
 import type { TaskStatus } from "@/lib/tasks/transitions";
 import { presentError } from "@/lib/errors/presentation";
 
@@ -82,7 +83,15 @@ function sortForColumn(status: TaskStatus, tasks: BoardTask[]): BoardTask[] {
     (a.due ? Date.parse(a.due) : Infinity) - (b.due ? Date.parse(b.due) : Infinity));
 }
 
-export function TaskBoard({ items, nowIso }: { items: BoardTask[]; nowIso: string }) {
+export function TaskBoard({
+  items,
+  nowIso,
+  intelligenceByTaskId = {},
+}: {
+  items: BoardTask[];
+  nowIso: string;
+  intelligenceByTaskId?: Record<string, TaskIntelligence>;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [movingId, setMovingId] = useState<string | null>(null);
@@ -134,6 +143,7 @@ export function TaskBoard({ items, nowIso }: { items: BoardTask[]; nowIso: strin
                   const urgency = urgencyOf(t, now);
                   const pending = isPending && movingId === t.id;
                   const error = errors[t.id];
+                  const intelligence = intelligenceByTaskId[t.id];
 
                   return (
                     <li key={t.id} aria-busy={pending} style={{
@@ -185,6 +195,14 @@ export function TaskBoard({ items, nowIso }: { items: BoardTask[]; nowIso: strin
                         {t.client_name}{t.owner ? ` · ${t.owner}` : ""}
                       </div>
 
+                      {intelligence?.state === "ready" && intelligence.context?.text && (
+                        <p style={{ margin: "var(--space-2) 0 0", color: "var(--muted)",
+                          fontSize: "var(--text-sm)", lineHeight: 1.4, display: "-webkit-box",
+                          WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          Context: {intelligence.context.text}
+                        </p>
+                      )}
+
                       <div style={{ display: "flex", gap: "var(--space-2)",
                         marginTop: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
                         {MOVES[t.status].map((m) => (
@@ -200,7 +218,7 @@ export function TaskBoard({ items, nowIso }: { items: BoardTask[]; nowIso: strin
                             {pending && m.lead ? "Saving…" : m.label}
                           </button>
                         ))}
-                        <Link href={`/queue/${t.commitment_id}`}
+                        <Link href={`/queue/${t.commitment_id}?taskId=${encodeURIComponent(t.id)}`}
                           style={{ fontSize: "var(--text-sm)", color: "var(--faint)",
                             marginInlineStart: "auto" }}>
                           Source

@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerClient } from "@/lib/db/server";
@@ -44,6 +45,7 @@ import type {
   DeliverableDraft,
   SuggestedActionType,
 } from "@/lib/types";
+import { ensureTaskIntelligenceJobForSubject } from "@/lib/tasks/intelligence-worker";
 
 const GMAIL_COMPOSE_SCOPE = CAPABILITIES.gmail_drafts.scopes[0];
 const CALENDAR_SCOPE = CAPABILITIES.calendar_context.scopes[0];
@@ -504,6 +506,33 @@ export async function approveDetectedActions(
     const { error } = await service.from("commitment").update({ status: "approved" })
       .eq("id", commitmentId).eq("org_id", context.commitment.org_id);
     if (error) throw error;
+  }
+
+  // This is only a post-response accelerator. It runs after every approved action has
+  // reached its final persisted state; a failed enqueue can never change approval.
+  const createdTaskIds = result.actions
+    .filter((action) => action.type === "internal_task" && action.state === "created" && action.externalId)
+    .map((action) => action.externalId as string);
+  if (createdTaskIds.length > 0) {
+    try {
+      after(async () => {
+        for (const taskId of createdTaskIds) {
+          try {
+            await ensureTaskIntelligenceJobForSubject(service, {
+              orgId: context.commitment.org_id,
+              subject: { type: "task", id: taskId },
+            });
+          } catch (error) {
+            logFailure("approveDetectedActions.task-intelligence-enqueue", {
+              error_type: error instanceof Error ? error.name : typeof error,
+            });
+          }
+        }
+      });
+    } catch {
+      // Local/test runtimes may not expose a request lifecycle for `after`; first-open or
+      // cron enqueueing remains the durable fallback.
+    }
   }
 
   revalidatePath("/queue");

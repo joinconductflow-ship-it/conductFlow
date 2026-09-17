@@ -1672,8 +1672,6 @@ select:hover:not(:disabled):not(:focus) {
 }
 
 @media (max-width: 560px) {
-  .cf-nav-copilot-label { display: none; }
-
   .detected-action-row {
     grid-template-columns: 30px minmax(0, 1fr) !important;
   }
@@ -1755,4 +1753,19 @@ select:hover:not(:disabled):not(:focus) {
 @keyframes cf-shimmer {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
+}
+
+@media (max-width: 760px) {
+  .commitment-workflow-column {
+    flex-basis: 100% !important;
+  }
+
+  .commitment-reference-rail {
+    order: -1;
+    flex-basis: 100% !important;
+    border-left: 0 !important;
+    border-top: 1px solid var(--border);
+    padding-left: 0 !important;
+    padding-top: var(--space-5);
+  }
 }
