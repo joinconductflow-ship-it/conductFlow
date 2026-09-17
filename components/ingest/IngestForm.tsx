@@ -36,7 +36,7 @@ function Segmented({ options, value, onChange, name, disabled }: {
             disabled={disabled}
             onClick={() => onChange(o.value)}
             style={{
-              border: 0, borderRadius: 3, padding: "5px 12px",
+              border: 0, borderRadius: "var(--radius-sm)", padding: "5px 12px",
               fontSize: "var(--text-sm)", fontWeight: active ? 600 : 400,
               // The inactive half defers to the shared button variables, so it picks up
               // the same hover the rest of the app's controls have.
