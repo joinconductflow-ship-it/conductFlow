@@ -68,11 +68,9 @@ export function calendarEventId(actionId: string): string {
   return `cf${actionId.toLowerCase().replace(/[^a-f0-9]/g, "")}`.slice(0, 64);
 }
 
-export function createCalendarClient(accessToken: string): CalendarClient {
+async function listRawEvents(accessToken: string, range: DayRange): Promise<{ events: RawEvent[]; timeZone: string | null }> {
   const headers = { Authorization: `Bearer ${accessToken}` };
-
-  async function listEventsWithMeta(range: DayRange): Promise<CalendarListResult> {
-    const events: CalendarEvent[] = [];
+    const events: RawEvent[] = [];
     let timeZone: string | null = null;
     let pageToken: string | undefined;
 
@@ -93,12 +91,36 @@ export function createCalendarClient(accessToken: string): CalendarClient {
         timeZone?: string;
         nextPageToken?: string;
       };
-      events.push(...(json.items ?? []).map(mapEvent));
+      events.push(...(json.items ?? []));
       timeZone ??= json.timeZone ?? null;
       pageToken = json.nextPageToken;
     } while (pageToken);
 
     return { events, timeZone };
+  }
+
+/** Attendee addresses are opt-in; existing calendar consumers still receive counts only. */
+export async function listEventsWithAttendeeEmails(
+  accessToken: string, range: DayRange,
+): Promise<{ event: CalendarEvent; attendeeEmails: string[] }[]> {
+  const { events } = await listRawEvents(accessToken, range);
+  return events.map((event) => ({
+    event: mapEvent(event),
+    attendeeEmails: [...new Set((event.attendees ?? []).flatMap((attendee) => {
+      if (!attendee || typeof attendee !== "object" || !("email" in attendee) ||
+        typeof attendee.email !== "string") return [];
+      const email = attendee.email.trim().toLowerCase();
+      return email && !email.includes("resource.calendar.google.com") ? [email] : [];
+    }))],
+  }));
+}
+
+export function createCalendarClient(accessToken: string): CalendarClient {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+
+  async function listEventsWithMeta(range: DayRange): Promise<CalendarListResult> {
+    const result = await listRawEvents(accessToken, range);
+    return { events: result.events.map(mapEvent), timeZone: result.timeZone };
   }
 
   async function getEvent(eventId: string): Promise<CalendarEvent | null> {
