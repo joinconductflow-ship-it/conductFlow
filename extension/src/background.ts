@@ -92,13 +92,17 @@ interface SendResult {
  * is, org id is resolved server-side from it and never trusted from this request body, so
  * there is nothing extra to secure here beyond keeping the token itself private.
  */
-async function sendTranscript(text: string, title: string): Promise<SendResult> {
+interface ClientOverride { clientName: string; clientEmail: string; }
+
+async function sendTranscript(text: string, title: string, override?: ClientOverride): Promise<SendResult> {
   const settings = await readSettings();
   if (!settings.token) {
     return { ok: false, message: "No workspace token configured yet, open Setup above." };
   }
-  if (!settings.clientEmail) {
-    return { ok: false, message: "Add a client email in Setup, ConductFlow needs one to file this under." };
+  const state = await readState();
+  const client = override ?? state.suggestedClient ?? settings;
+  if (!client.clientEmail.trim()) {
+    return { ok: false, message: "No client identified — set one in Setup or wait for a calendar match." };
   }
 
   try {
@@ -110,8 +114,8 @@ async function sendTranscript(text: string, title: string): Promise<SendResult> 
       },
       body: JSON.stringify({
         text,
-        clientName: settings.clientName || settings.clientEmail,
-        clientEmail: settings.clientEmail,
+        clientName: client.clientName || client.clientEmail,
+        clientEmail: client.clientEmail,
         title,
       }),
     });
@@ -273,25 +277,25 @@ async function stopCapture(): Promise<CaptureState> {
     const settings = await readSettings();
     if (settings.autoSend && latest.transcript.trim()) {
       await publishState({
-        status: "sending", transcript: latest.transcript,
+        ...latest, status: "sending", transcript: latest.transcript,
         suggestions: latest.suggestions, message: "Sending transcript to ConductFlow…",
       });
       const title = `Meeting captured ${new Date().toLocaleDateString()}`;
       const result = await sendTranscript(latest.transcript, title);
       return publishState({
-        status: result.ok ? "idle" : "error", transcript: latest.transcript,
+        ...latest, status: result.ok ? "idle" : "error", transcript: latest.transcript,
         suggestions: latest.suggestions, message: result.message,
       });
     }
     return publishState({
-      status: "idle", transcript: latest.transcript,
+      ...latest, status: "idle", transcript: latest.transcript,
       suggestions: latest.suggestions, message: "Stopped.",
     });
   } catch (error) {
     const latest = await readState();
     const message = error instanceof Error ? error.message : String(error);
     return publishState({
-      status: "error", transcript: latest.transcript,
+      ...latest, status: "error", transcript: latest.transcript,
       suggestions: latest.suggestions, message,
     });
   }
@@ -335,7 +339,7 @@ async function handleOffscreenMessage(message: Record<string, unknown>): Promise
 
   if (message.type === "CAPTURE_ENDED") {
     await publishState({
-      status: "idle", transcript: current.transcript, suggestions: current.suggestions,
+      ...current, status: "idle", transcript: current.transcript, suggestions: current.suggestions,
       message: "The captured tab stopped sending audio.",
     });
     return;
@@ -348,7 +352,7 @@ async function handleOffscreenMessage(message: Record<string, unknown>): Promise
     }
     const latest = await readState();
     await publishState({
-      status: "error", transcript: latest.transcript,
+      ...latest, status: "error", transcript: latest.transcript,
       suggestions: latest.suggestions, message: detail,
     });
   }
@@ -382,7 +386,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       let state = await readState();
       if (["starting", "loading_model", "capturing", "stopping"].includes(state.status) && !(await hasOffscreenDocument())) {
         state = await publishState({
-          status: "idle",
+          ...state, status: "idle",
           transcript: state.transcript,
           suggestions: state.suggestions,
           message: "Capture is no longer running.",
