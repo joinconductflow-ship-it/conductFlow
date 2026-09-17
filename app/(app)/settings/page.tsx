@@ -28,8 +28,8 @@ export interface ConnectionRow {
 const column: React.CSSProperties = { maxWidth: 720 };
 
 export default async function SettingsPage({ searchParams }:
-  { searchParams: Promise<{ error?: string; connected?: string }> }) {
-  const { error, connected } = await searchParams;
+  { searchParams: Promise<{ error?: string; connected?: string; microsoft_admin_consent?: string }> }) {
+  const { error, connected, microsoft_admin_consent: microsoftAdminConsent } = await searchParams;
   const safeError = presentErrorText(error, {
     fallback: "Couldn't complete that connection. Try again.",
     authentication: "Please sign in again before changing connections.",
@@ -91,6 +91,15 @@ export default async function SettingsPage({ searchParams }:
           <CardTitle tone="ok" dot>Account connected</CardTitle>
           <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
             OAuth completed. Check connection health and enabled capabilities below.
+          </p>
+        </Card>
+      )}
+      {microsoftAdminConsent === "1" && (
+        <Card tone="ok" style={{ marginBottom: "var(--space-4)" }}>
+          <CardTitle tone="ok" dot>Microsoft admin consent granted</CardTitle>
+          <p style={{ color: "var(--muted)", marginTop: "var(--space-2)" }}>
+            Your organization approved Teams access. Click Connect Microsoft (or Reconnect)
+            below to finish setting up your own connection.
           </p>
         </Card>
       )}
