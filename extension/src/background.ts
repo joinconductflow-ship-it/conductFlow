@@ -94,6 +94,12 @@ interface SendResult {
  */
 interface ClientOverride { clientName: string; clientEmail: string; }
 
+function readOverride(value: unknown): ClientOverride | undefined {
+  if (!value || typeof value !== "object" || !("clientName" in value) || !("clientEmail" in value) ||
+    typeof value.clientName !== "string" || typeof value.clientEmail !== "string") return undefined;
+  return { clientName: value.clientName.trim(), clientEmail: value.clientEmail.trim() };
+}
+
 async function sendTranscript(text: string, title: string, override?: ClientOverride): Promise<SendResult> {
   const settings = await readSettings();
   if (!settings.token) {
@@ -258,7 +264,7 @@ async function startCapture(tabId: number): Promise<CaptureState> {
   }
 }
 
-async function stopCapture(): Promise<CaptureState> {
+async function stopCapture(override?: ClientOverride): Promise<CaptureState> {
   const current = await readState();
   if (!["starting", "loading_model", "capturing", "stopping"].includes(current.status)) {
     return current;
@@ -281,7 +287,7 @@ async function stopCapture(): Promise<CaptureState> {
         suggestions: latest.suggestions, message: "Sending transcript to ConductFlow…",
       });
       const title = `Meeting captured ${new Date().toLocaleDateString()}`;
-      const result = await sendTranscript(latest.transcript, title);
+      const result = await sendTranscript(latest.transcript, title, override);
       return publishState({
         ...latest, status: result.ok ? "idle" : "error", transcript: latest.transcript,
         suggestions: latest.suggestions, message: result.message,
@@ -415,14 +421,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     if (message.type === "STOP_CAPTURE") {
-      return { ok: true, state: await stopCapture() };
+      return { ok: true, state: await stopCapture(readOverride(message.override)) };
     }
 
     if (message.type === "SEND_TRANSCRIPT") {
       const current = await readState();
       const text = typeof message.text === "string" ? message.text : current.transcript;
       const title = `Meeting captured ${new Date().toLocaleDateString()}`;
-      return { ok: true, result: await sendTranscript(text, title) };
+      return { ok: true, result: await sendTranscript(text, title, readOverride(message.override)) };
     }
 
     if (typeof message.type === "string") {

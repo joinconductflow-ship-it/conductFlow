@@ -143,7 +143,7 @@ startButton.addEventListener("click", async () => {
 stopButton.addEventListener("click", async () => {
   stopButton.disabled = true;
   status.textContent = "Stopping and finishing queued audio…";
-  const response = await request({ type: "STOP_CAPTURE" });
+  const response = await request({ type: "STOP_CAPTURE", override: currentOverride });
   if (response.state) render(response.state);
   if (!response.ok) {
     status.textContent = response.error ?? "Unable to stop capture.";
