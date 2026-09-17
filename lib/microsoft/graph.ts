@@ -47,6 +47,20 @@ export interface GraphMailMessage {
   from?: { emailAddress?: { name?: string; address?: string } };
   body?: { contentType?: string; content?: string }; bodyPreview?: string;
 }
+export interface GraphCalendarEvent {
+  id: string; subject?: string; start: string; end: string; attendeeEmails: string[];
+}
+interface RawCalendarEvent {
+  id: string; subject?: string;
+  start?: { dateTime?: string }; end?: { dateTime?: string };
+  attendees?: { emailAddress?: { address?: string } }[];
+}
+
+// Graph's default calendar response uses UTC but omits the offset in dateTime.
+function calendarDateTime(value = ""): string {
+  return value && !/(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? `${value}Z` : value;
+}
+
 export interface GraphTeam { id: string; displayName: string; }
 export interface GraphChannel { id: string; displayName: string; }
 export interface TeamsChannel { id: string; name: string; teamName: string; }
@@ -164,6 +178,20 @@ export function createGraphClient(accessToken: string, options: GraphClientOptio
       if (response.status === 404) return null;
       return await response.json() as GraphMailMessage;
     },
+    async listCalendarEventsNear(sinceIso: string, untilIso: string): Promise<GraphCalendarEvent[]> {
+      const params = new URLSearchParams({
+        startDateTime: sinceIso, endDateTime: untilIso, "$select": "subject,start,end,attendees",
+      });
+      const events = await all<RawCalendarEvent>(`${API_BASE}/me/calendarview?${params}`);
+      return events.map((event) => ({
+        id: event.id, subject: event.subject,
+        start: calendarDateTime(event.start?.dateTime), end: calendarDateTime(event.end?.dateTime),
+        attendeeEmails: [...new Set((event.attendees ?? []).flatMap((attendee) => {
+          const email = attendee.emailAddress?.address?.trim().toLowerCase();
+          return email ? [email] : [];
+        }))],
+      }));
+    },
     listMyTeams: () => all<GraphTeam>(`${API_BASE}/me/joinedTeams`),
     listChannels: (teamId: string) => all<GraphChannel>(`${API_BASE}/teams/${encodeURIComponent(teamId)}/channels`),
     async listChannelMessagesPage(teamId: string, channelId: string, top: number, nextLink?: string) {
@@ -219,3 +247,6 @@ export function splitChannelId(id: string): { teamId: string; channelId: string 
   if (separator <= 0 || separator === id.length - 1) throw new Error("Invalid Teams channel id.");
   return { teamId: id.slice(0, separator), channelId: id.slice(separator + 1) };
 }
+
+export const listCalendarEventsNear = (accessToken: string, sinceIso: string, untilIso: string) =>
+  createGraphClient(accessToken, { maxRetryWaitMs: 5000 }).listCalendarEventsNear(sinceIso, untilIso);
