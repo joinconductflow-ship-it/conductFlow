@@ -1,7 +1,7 @@
 // @ts-nocheck -- This entry point is compiled by the independent extension build, not the root Next.js project.
 export {};
 
-type CaptureStatus = "idle" | "starting" | "loading_model" | "capturing" | "stopping" | "error";
+type CaptureStatus = "idle" | "starting" | "loading_model" | "capturing" | "stopping" | "sending" | "error";
 
 interface CaptureState {
   status: CaptureStatus;
@@ -212,6 +212,19 @@ async function stopCapture(): Promise<CaptureState> {
       if (!response?.ok) throw new Error(response?.error ?? "The audio processor did not stop cleanly.");
     }
     const latest = await readState();
+    const settings = await readSettings();
+    if (settings.autoSend && latest.transcript.trim()) {
+      await publishState({
+        status: "sending", transcript: latest.transcript,
+        suggestions: latest.suggestions, message: "Sending transcript to ConductFlow…",
+      });
+      const title = `Meeting captured ${new Date().toLocaleDateString()}`;
+      const result = await sendTranscript(latest.transcript, title);
+      return publishState({
+        status: result.ok ? "idle" : "error", transcript: latest.transcript,
+        suggestions: latest.suggestions, message: result.message,
+      });
+    }
     return publishState({
       status: "idle", transcript: latest.transcript,
       suggestions: latest.suggestions, message: "Stopped.",
