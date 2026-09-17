@@ -214,6 +214,20 @@
       #save-settings:hover {
         background: var(--raised-hover);
       }
+
+      #view-queue {
+        display: block;
+        margin-top: 8px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 650;
+        color: var(--accent-hover);
+        text-decoration: none;
+      }
+
+      #view-queue:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
@@ -249,6 +263,7 @@
     <textarea id="transcript" readonly aria-label="Running transcript" placeholder="Transcript chunks will appear here…"></textarea>
     <button id="copy" type="button" disabled>Copy transcript</button>
     <button id="send-now" type="button" disabled>Send to ConductFlow</button>
+    <a id="view-queue" href="#" target="_blank" rel="noopener" hidden>View in ConductFlow's queue &rarr;</a>
     <script type="module" src="popup.js"></script>
   </body>
 </html>

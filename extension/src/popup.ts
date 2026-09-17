@@ -27,6 +27,14 @@ const startButton = document.querySelector<HTMLButtonElement>("#start")!;
 const stopButton = document.querySelector<HTMLButtonElement>("#stop")!;
 const copyButton = document.querySelector<HTMLButtonElement>("#copy")!;
 const sendNowButton = document.querySelector<HTMLButtonElement>("#send-now")!;
+const viewQueueLink = document.querySelector<HTMLAnchorElement>("#view-queue")!;
+
+let apiBase = "https://conductflow.tech";
+
+function showQueueLinkIfSent(message: string): void {
+  viewQueueLink.hidden = !message.startsWith("Sent");
+  if (!viewQueueLink.hidden) viewQueueLink.href = `${apiBase}/queue`;
+}
 const transcript = document.querySelector<HTMLTextAreaElement>("#transcript")!;
 const status = document.querySelector<HTMLDivElement>("#status")!;
 const suggestionList = document.querySelector<HTMLUListElement>("#suggestion-list")!;
@@ -54,6 +62,7 @@ function render(state: CaptureState): void {
   const progress = state.progress === undefined ? "" : ` (${Math.round(state.progress)}%)`;
   status.textContent = `${state.message}${progress}`;
   status.dataset.kind = state.status === "error" ? "error" : "normal";
+  showQueueLinkIfSent(state.message);
 }
 
 async function request(message: object): Promise<RuntimeResponse> {
@@ -126,6 +135,7 @@ sendNowButton.addEventListener("click", async () => {
   if (result) {
     status.textContent = result.message;
     status.dataset.kind = result.ok ? "normal" : "error";
+    showQueueLinkIfSent(result.message);
   } else {
     status.textContent = response.error ?? "Unable to send the transcript.";
     status.dataset.kind = "error";
@@ -137,6 +147,7 @@ async function loadSettings(): Promise<void> {
   const response = await request({ type: "GET_SETTINGS" });
   const settings = (response as { settings?: Record<string, unknown> }).settings;
   if (!settings) return;
+  if (typeof settings.apiBase === "string" && settings.apiBase) apiBase = settings.apiBase;
   tokenInput.value = typeof settings.token === "string" ? settings.token : "";
   clientNameInput.value = typeof settings.clientName === "string" ? settings.clientName : "";
   clientEmailInput.value = typeof settings.clientEmail === "string" ? settings.clientEmail : "";
