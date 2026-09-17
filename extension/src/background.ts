@@ -328,6 +328,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return { ok: true, state };
     }
 
+    if (message.type === "WARM_MODEL") {
+      const current = await readState();
+      if (["starting", "loading_model", "capturing", "stopping"].includes(current.status)) {
+        return { ok: true };
+      }
+      try {
+        await ensureOffscreenDocument();
+        await chrome.runtime.sendMessage({ target: "offscreen", type: "WARM_MODEL" });
+      } catch {
+        // Best-effort warm-up; the model will still load normally on Start if this fails.
+      }
+      return { ok: true };
+    }
+
     if (message.type === "START_CAPTURE") {
       if (typeof message.tabId !== "number") throw new Error("No active tab was selected.");
       return { ok: true, state: await startCapture(message.tabId) };

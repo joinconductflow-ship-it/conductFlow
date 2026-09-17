@@ -169,3 +169,6 @@ chrome.runtime.onMessage.addListener((message) => {
 
 void refresh();
 void loadSettings();
+// Warms the local Whisper model as soon as the popup opens, so the first Start click
+// after that doesn't have to wait through the model's one-time load.
+void request({ type: "WARM_MODEL" });

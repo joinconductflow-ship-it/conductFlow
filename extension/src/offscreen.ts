@@ -326,5 +326,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "WARM_MODEL") {
+    // Fire-and-forget: getTranscriber() caches its promise, so this just moves the
+    // one-time model load earlier (popup open) instead of waiting for the Start click.
+    getTranscriber().catch(() => undefined);
+    sendResponse({ ok: true });
+    return true;
+  }
+
   return false;
 });
