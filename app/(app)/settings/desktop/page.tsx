@@ -44,16 +44,17 @@ export default async function DesktopSettingsPage() {
       <BackLink href="/settings">Settings</BackLink>
       <PageHeader
         title="Desktop app"
-        lede="Capture a conversation from anywhere on your Mac with a keyboard shortcut. It reads your clipboard when you ask it to, and nothing else."
+        lede="Capture a conversation from anywhere on your Mac with a keyboard shortcut, or from the Chrome extension while you're in a call. The same token below works for both."
       />
 
       <div style={columnStyle}>
         <Card>
           <CardTitle>What it can do</CardTitle>
           <p style={{ fontSize: 13, lineHeight: 1.65 }}>
-            The desktop app sends text you have copied to this workspace, where it runs the
-            same extraction the web app runs. Commitments and drafts land in your queue as
-            proposals. It cannot approve anything, and it cannot send anything — approval
+            The desktop app sends text you have copied, and the Chrome extension sends the
+            meeting transcript it captured, to this workspace, where either runs the same
+            extraction the web app runs. Commitments and drafts land in your queue as
+            proposals. Neither can approve anything, and neither can send anything — approval
             still happens here, by you.
           </p>
         </Card>
