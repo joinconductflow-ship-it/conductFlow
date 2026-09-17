@@ -21,7 +21,10 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             Nothing was lost — no promise, task, or draft is changed by a failed page load.
           </p>
           <button type="button" onClick={reset}
-            style={{ font: "inherit", padding: "7px 13px", borderRadius: "6px",
+            // Literal, not var(--radius): this boundary may render with globals.css
+            // never loaded, and an unresolved variable would square the corner in
+            // exactly the case this page exists for. Keep in step with --radius by hand.
+            style={{ font: "inherit", padding: "7px 13px", borderRadius: "10px",
               border: "1px solid currentColor", background: "transparent", cursor: "pointer" }}>
             Try again
           </button>
