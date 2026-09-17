@@ -46,10 +46,16 @@ Chrome 116 or newer is required. The extension captures only the selected browse
 
 ## Sending transcripts to ConductFlow automatically
 
-Open the popup's **Setup** section once and fill in:
+On popup open, the extension tries to identify you from your signed-in ConductFlow session in the same browser/profile. The first successful connection saves a workspace token and shows **Connected as {email}**. If you are signed out or the probe fails, paste a token in **Setup**; this also supports a separate work profile. An existing auto token cannot be recovered after extension storage is cleared: revoke **Chrome extension (auto)** at `/settings/desktop` to allow a fresh auto-login, or paste a new manual token.
+
+When the workspace has an active Google or Microsoft calendar connection with calendar access granted, starting a capture checks meetings around that time and tries to match an attendee to a known client. A match appears as **Meeting with: {name}**, with **Change** to review and edit it before sending. Calendar lookup does not delay audio capture; with no match, Setup defaults still apply.
+
+Choose **Use for this capture** to apply an edit. It takes priority over the calendar suggestion for both Stop-time auto-send and the manual Send button, without changing Setup defaults. Edits last only while this popup stays open and reset for the next capture; reopening the popup restores the original suggestion. Turn off auto-send if you want to review every recipient before submitting.
+
+Open the popup's **Setup** section to configure the fallback:
 
 - **Workspace token** — the same token minted at `/settings/desktop` for the Mac desktop app. This extension calls the identical `/api/desktop/execute` endpoint.
-- **Client name** and **client email** — which client this capture's commitments should be filed under.
+- **Client name** and **client email** — fallback client for captures without a calendar match or per-capture edit.
 - **Send automatically when I stop capturing** — checked by default. When on, the finished transcript is submitted the moment you click Stop; no copy-paste into `/ingest` needed.
 
 Setup only needs opening once; it stays collapsed on later opens once a token is saved. If auto-send is off, or a send fails, use the **Send to ConductFlow** button under the transcript to submit (or retry) manually at any time.
