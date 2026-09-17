@@ -1327,7 +1327,7 @@ select:hover:not(:disabled):not(:focus) {
   right: 9px;
   bottom: -1px;
   height: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
 }
 .cf-nav-more-current {
