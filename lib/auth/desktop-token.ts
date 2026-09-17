@@ -52,7 +52,7 @@ export async function mintToken(
     .select("id")
     .single();
 
-  if (error) throw new Error(`could not mint a desktop token: ${error.message}`);
+  if (error) throw new Error(`could not mint a desktop token: ${error.message}`, { cause: error });
   return { token, id: data.id };
 }
 
@@ -118,10 +118,21 @@ export async function findOrMintExtensionToken(
   db: SupabaseClient,
   args: { orgId: string; userId: string },
 ): Promise<{ token: string | null; id: string }> {
-  const { data, error } = await db.from("desktop_token").select("id")
+  const lookup = () => db.from("desktop_token").select("id")
     .eq("org_id", args.orgId).eq("user_id", args.userId)
     .eq("label", "Chrome extension (auto)").is("revoked_at", null).maybeSingle();
+  const { data, error } = await lookup();
   if (error) throw error;
   if (data) return { token: null, id: data.id };
-  return mintToken(db, { ...args, label: "Chrome extension (auto)" });
+  try {
+    return await mintToken(db, { ...args, label: "Chrome extension (auto)" });
+  } catch (error) {
+    const cause = error instanceof Error ? error.cause : null;
+    if (cause && typeof cause === "object" && "code" in cause && cause.code === "23505") {
+      const winner = await lookup();
+      if (winner.error) throw winner.error;
+      if (winner.data) return { token: null, id: winner.data.id };
+    }
+    throw error;
+  }
 }
