@@ -143,7 +143,7 @@ sendNowButton.addEventListener("click", async () => {
   sendNowButton.disabled = transcript.value.trim().length === 0;
 });
 
-async function loadSettings(): Promise<void> {
+async function loadSettings(probeSession = true): Promise<void> {
   const response = await request({ type: "GET_SETTINGS" });
   const settings = (response as { settings?: Record<string, unknown> }).settings;
   if (!settings) return;
@@ -156,6 +156,14 @@ async function loadSettings(): Promise<void> {
   // when a token is already configured.
   const setup = document.querySelector<HTMLDetailsElement>("#setup")!;
   setup.open = !tokenInput.value;
+  if (!settings.token && probeSession) {
+    try {
+      const login = await request({ type: "AUTO_LOGIN" });
+      if (login.ok && login.result?.ok) await loadSettings(false);
+    } catch {
+      // Manual Setup remains available when the session probe cannot complete.
+    }
+  }
 }
 
 saveSettingsButton.addEventListener("click", async () => {
