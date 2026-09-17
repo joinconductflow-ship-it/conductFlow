@@ -26,6 +26,7 @@ const saveSettingsButton = document.querySelector<HTMLButtonElement>("#save-sett
 const startButton = document.querySelector<HTMLButtonElement>("#start")!;
 const stopButton = document.querySelector<HTMLButtonElement>("#stop")!;
 const copyButton = document.querySelector<HTMLButtonElement>("#copy")!;
+const sendNowButton = document.querySelector<HTMLButtonElement>("#send-now")!;
 const transcript = document.querySelector<HTMLTextAreaElement>("#transcript")!;
 const status = document.querySelector<HTMLDivElement>("#status")!;
 const suggestionList = document.querySelector<HTMLUListElement>("#suggestion-list")!;
@@ -46,8 +47,9 @@ function render(state: CaptureState): void {
 
   const busy = state.status !== "idle" && state.status !== "error";
   startButton.disabled = busy;
-  stopButton.disabled = !busy || state.status === "starting" || state.status === "stopping";
+  stopButton.disabled = !busy || ["starting", "stopping", "sending"].includes(state.status);
   copyButton.disabled = state.transcript.trim().length === 0;
+  sendNowButton.disabled = state.transcript.trim().length === 0 || state.status === "sending";
 
   const progress = state.progress === undefined ? "" : ` (${Math.round(state.progress)}%)`;
   status.textContent = `${state.message}${progress}`;
@@ -113,6 +115,22 @@ copyButton.addEventListener("click", async () => {
     status.textContent = "Chrome could not copy the transcript.";
     status.dataset.kind = "error";
   }
+});
+
+sendNowButton.addEventListener("click", async () => {
+  sendNowButton.disabled = true;
+  status.textContent = "Sending transcript to ConductFlow…";
+  status.dataset.kind = "normal";
+  const response = await request({ type: "SEND_TRANSCRIPT", text: transcript.value });
+  const result = (response as { result?: { ok: boolean; message: string } }).result;
+  if (result) {
+    status.textContent = result.message;
+    status.dataset.kind = result.ok ? "normal" : "error";
+  } else {
+    status.textContent = response.error ?? "Unable to send the transcript.";
+    status.dataset.kind = "error";
+  }
+  sendNowButton.disabled = transcript.value.trim().length === 0;
 });
 
 async function loadSettings(): Promise<void> {

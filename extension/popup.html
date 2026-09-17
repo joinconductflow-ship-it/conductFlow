@@ -148,7 +148,7 @@
         font-size: 12px;
       }
 
-      #copy {
+      #copy, #send-now {
         width: 100%;
         margin-top: 8px;
         color: var(--text);
@@ -156,7 +156,7 @@
         border-color: var(--border-strong);
       }
 
-      #copy:not(:disabled):hover {
+      #copy:not(:disabled):hover, #send-now:not(:disabled):hover {
         background: var(--raised-hover);
       }
 
@@ -248,6 +248,7 @@
     </div>
     <textarea id="transcript" readonly aria-label="Running transcript" placeholder="Transcript chunks will appear here…"></textarea>
     <button id="copy" type="button" disabled>Copy transcript</button>
+    <button id="send-now" type="button" disabled>Send to ConductFlow</button>
     <script type="module" src="popup.js"></script>
   </body>
 </html>
