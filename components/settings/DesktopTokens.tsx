@@ -63,7 +63,7 @@ export function DesktopTokens({ tokens }: { tokens: TokenRow[] }) {
             {" "}as <code>CONDUCTFLOW_TOKEN</code>.
           </p>
           <code style={{
-            display: "block", padding: "10px 12px", borderRadius: 8, fontSize: 12,
+            display: "block", padding: "10px 12px", borderRadius: "var(--radius)", fontSize: 12,
             background: "rgba(0,0,0,.06)", wordBreak: "break-all", userSelect: "all",
           }}>{fresh}</code>
           <button
