@@ -4,7 +4,6 @@ import { buttonStyle, SectionLabel } from "@/components/ui/primitives";
 import HeroExample from "@/components/marketing/HeroExample";
 import ControlLayer from "@/components/marketing/ControlLayer";
 
-import type { Viewport } from "next";
 
 /** Published as a GitHub release asset: ~96 MB is too large for the repo or a Vercel
  *  deploy, and a release gives the file a stable URL and a place to state the
@@ -72,13 +71,6 @@ function AppleMark() {
  * a mismatch blocks every inline script Next emits. Do not add Cache-Control to this route
  * without removing the nonce from the policy first.
  */
-export const dynamic = "force-dynamic";
-
-export const viewport: Viewport = {
-  colorScheme: "light",
-  themeColor: "#F6F2E9",
-};
-
 const shell: React.CSSProperties = {
   maxWidth: 1120, marginInline: "auto", paddingInline: "var(--space-5)",
 };
@@ -88,7 +80,16 @@ const shell: React.CSSProperties = {
  * side of the product: file names, action ids, timestamps; the sans column is the
  * human's. It wraps to stacked rather than needing a media query inline styles can't write.
  */
-export default function Home() {
+/**
+ * The landing page, rendered at two URLs with two audiences.
+ *
+ * /product is public and sells: it offers sign-in and treats the reader as someone who
+ * has not committed. / is the signed-in home, rendered inside the app layout with the real
+ * nav above it, so every "sign in" affordance here would be dead weight at best and
+ * confusing at worst. `signedIn` swaps those three places rather than forking the file,
+ * because the prose is the same pitch either way and two copies would drift.
+ */
+export function Landing({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <div className="marketing-page">
       {/* Same affordance the signed-in app gives a keyboard user, for the same reason. */}
@@ -97,7 +98,7 @@ export default function Home() {
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div style={{ ...shell, display: "flex", alignItems: "center",
           justifyContent: "space-between", minHeight: 56, gap: "var(--space-4)" }}>
-          <Link href="/" aria-label="ConductFlow home" className="marketing-brand">
+          <Link href={signedIn ? "/" : "/product"} aria-label="ConductFlow home" className="marketing-brand">
             <span className="marketing-logo-frame">
               <Image src="/ConductFlowLogo.png" alt="" width={32} height={32}
                 priority className="marketing-logo" />
@@ -110,7 +111,9 @@ export default function Home() {
             <a href="#principles">Principles</a>
             <a href="#desktop">Mac app</a>
           </nav>
-          <Link href="/onboarding" style={{ fontSize: "var(--text-base)" }}>Sign in</Link>
+          {signedIn
+            ? <Link href="/queue" style={{ fontSize: "var(--text-base)" }}>Go to queue</Link>
+            : <Link href="/onboarding" style={{ fontSize: "var(--text-base)" }}>Sign in</Link>}
         </div>
       </header>
 
@@ -137,9 +140,10 @@ export default function Home() {
               alignItems: "center" }}>
               <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap",
                 justifyContent: "center" }}>
-                <Link href="/onboarding" style={{ ...buttonStyle("primary"), color: "#fff",
+                <Link href={signedIn ? "/queue" : "/onboarding"}
+                  style={{ ...buttonStyle("primary"), color: "#fff",
                   fontSize: "var(--text-md)", height: 48, padding: "0 24px" }}>
-                  Start with one conversation <span aria-hidden>→</span>
+                  {signedIn ? "Open your queue" : "Start with one conversation"} <span aria-hidden>→</span>
                 </Link>
                 <a href={DESKTOP_DOWNLOAD_URL}
                   style={{ ...buttonStyle("secondary"), fontSize: "var(--text-md)",
@@ -294,10 +298,11 @@ export default function Home() {
             Paste the notes in and read what comes back. If none of it is worth approving, you
             have lost about four minutes and nothing has left the building.
           </p>
-          <Link href="/onboarding" style={{ ...buttonStyle("primary"), color: "#fff",
+          <Link href={signedIn ? "/ingest" : "/onboarding"}
+            style={{ ...buttonStyle("primary"), color: "#fff",
             fontSize: "var(--text-lg)", height: 60, minWidth: 300, padding: "0 36px",
             marginTop: "var(--space-5)" }}>
-            Start with one call
+            {signedIn ? "Add a conversation" : "Start with one call"}
           </Link>
           </div>
         </section>
