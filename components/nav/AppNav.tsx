@@ -10,31 +10,79 @@ export interface NavItem {
   isCurrent: boolean;
 }
 
-const DESTINATIONS: { href: string; label: string }[] = [
-  { href: "/queue", label: "Queue" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/roi", label: "ROI" },
-  { href: "/settings", label: "Settings" },
-  { href: "/retainers", label: "Retainers" },
-  { href: "/documents", label: "Documents" },
-  { href: "/scheduling", label: "Scheduling" },
-  { href: "/billing", label: "Billing" },
-  { href: "/risk", label: "Payment Risk" },
-  { href: "/scope", label: "Scope of work" },
-  { href: "/reviews", label: "Reviews & referrals" },
-  { href: "/leads", label: "Leads" },
-  { href: "/reports", label: "Reports" },
-];
+export interface NavGroup {
+  label: string;
+  /** Where the tab itself goes: the group's first destination. */
+  href: string;
+  items: NavItem[];
+  isCurrent: boolean;
+}
 
 /**
- * Pure so it can be tested without a DOM. A nested route marks its parent current:
- * reviewing a draft at /queue/<id> is still being in the queue.
+ * Thirteen destinations, seven tabs.
+ *
+ * They used to be a flat list where the first five were visible and the other eight lived
+ * under "More". That ordering was not a judgement about importance, it was just the order
+ * they were built in, so Payment Risk and Leads were equally buried and the menu had no
+ * theme you could learn. A tab bar that hides most of the product behind one word teaches
+ * nobody where anything is.
+ *
+ * Grouping by the question being asked instead: what needs doing (Queue), what is
+ * scheduled (Tasks), who the work is for (Clients), what is owed (Billing), what was
+ * produced (Documents), how it went (Reports), and how it behaves (Settings). Every
+ * destination sits under the question it answers, and the group's members appear as a
+ * second row once you are inside it.
+ *
+ * No route moved. Each of these URLs is exactly where it was.
  */
+const GROUPS: { label: string; items: { href: string; label: string }[] }[] = [
+  { label: "Queue", items: [{ href: "/queue", label: "Queue" }] },
+  { label: "Tasks", items: [
+    { href: "/tasks", label: "Tasks" },
+    { href: "/scheduling", label: "Scheduling" },
+  ] },
+  { label: "Clients", items: [
+    { href: "/leads", label: "Leads" },
+    { href: "/retainers", label: "Retainers" },
+    { href: "/scope", label: "Scope of work" },
+    { href: "/reviews", label: "Reviews & referrals" },
+  ] },
+  { label: "Billing", items: [
+    { href: "/billing", label: "Billing" },
+    { href: "/risk", label: "Payment Risk" },
+  ] },
+  { label: "Documents", items: [{ href: "/documents", label: "Documents" }] },
+  { label: "Reports", items: [
+    { href: "/reports", label: "Reports" },
+    { href: "/roi", label: "ROI" },
+  ] },
+  { label: "Settings", items: [{ href: "/settings", label: "Settings" }] },
+];
+
+/** A nested route belongs to its parent: reviewing a draft at /queue/<id> is still Queue. */
+function matches(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * Pure so it can be tested without a DOM. A group is current when any destination inside
+ * it is, which is what lets the tab stay lit while the second row says which one.
+ */
+export function navGroups(pathname: string): NavGroup[] {
+  return GROUPS.map((group) => {
+    const items = group.items.map((item) => ({ ...item, isCurrent: matches(pathname, item.href) }));
+    return {
+      label: group.label,
+      href: group.items[0].href,
+      items,
+      isCurrent: items.some((item) => item.isCurrent),
+    };
+  });
+}
+
+/** Every destination, flattened, in tab order. */
 export function navItems(pathname: string): NavItem[] {
-  return DESTINATIONS.map((d) => ({
-    ...d,
-    isCurrent: pathname === d.href || pathname.startsWith(`${d.href}/`),
-  }));
+  return navGroups(pathname).flatMap((group) => group.items);
 }
 
 /**
@@ -45,9 +93,10 @@ export function navItems(pathname: string): NavItem[] {
  */
 export function AppNav({ email }: { email: string | null }) {
   const pathname = usePathname() ?? "";
-  const items = navItems(pathname);
-  const moreItems = items.slice(5);
-  const currentMore = moreItems.find((item) => item.isCurrent);
+  const groups = navGroups(pathname);
+  // Only a group with somewhere else to go earns a second row; Queue, Documents and
+  // Settings are one destination each and a sub-nav of one is just a repeated title.
+  const openGroup = groups.find((group) => group.isCurrent && group.items.length > 1);
 
   return (
     // Sticky, and sharing the page frame's width and gutter, so the wordmark sits directly
@@ -64,48 +113,19 @@ export function AppNav({ email }: { email: string | null }) {
           </Link>
 
           <ul style={{ display: "flex", listStyle: "none", padding: 0, margin: 0, gap: 1, flexWrap: "wrap" }}>
-            {items.slice(0, 5).map((item) => (
-              <li key={item.href}>
+            {groups.map((group) => (
+              <li key={group.label}>
                 {/*
                   The skin lives in globals.css keyed off aria-current, so the pill an eye
                   sees and the state a screen reader hears cannot drift apart. Weight and
                   fill carry it as well as colour does, for a monochrome screen.
                 */}
-                <Link href={item.href} className="cf-nav-link"
-                  aria-current={item.isCurrent ? "page" : undefined}>
-                  {item.label}
+                <Link href={group.href} className="cf-nav-link"
+                  aria-current={group.isCurrent ? "page" : undefined}>
+                  {group.label}
                 </Link>
               </li>
             ))}
-            <li style={{ position: "relative" }}>
-              <details key={pathname} onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.currentTarget.open = false;
-                  event.currentTarget.querySelector("summary")?.focus();
-                }
-              }}>
-                <summary className={`cf-nav-link${currentMore ? " cf-nav-more-current" : ""}`} style={{ cursor: "pointer",
-                  fontWeight: currentMore ? 600 : undefined }}>
-                  {currentMore ? `More · ${currentMore.label}` : "More"}
-                </summary>
-                <ul style={{ position: "absolute", right: 0, minWidth: "max-content",
-                  listStyle: "none", margin: "var(--space-2) 0 0", padding: "var(--space-2)",
-                  background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-                  {moreItems.map((item) => (
-                    <li key={item.href}>
-                      <Link href={item.href} className="cf-nav-link"
-                        aria-current={item.isCurrent ? "page" : undefined}
-                        onClick={(event) => {
-                          const disclosure = event.currentTarget.closest("details");
-                          if (disclosure) disclosure.open = false;
-                        }}>
-                        {item.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            </li>
           </ul>
         </div>
 
@@ -126,6 +146,29 @@ export function AppNav({ email }: { email: string | null }) {
           <SignOutButton />
         </div>
       </div>
+
+      {/*
+        The group's own destinations. This is where the thirteen went: not into a menu that
+        hides them behind one word, but onto a row that only appears where it is relevant
+        and names the section you are standing in. aria-label repeats the group name so a
+        screen reader reaching this list is told what it is a list of.
+      */}
+      {openGroup && (
+        <div className="cf-subnav">
+          <ul aria-label={openGroup.label} style={{ maxWidth: "var(--shell)", margin: "0 auto",
+            padding: "0 var(--gutter)", display: "flex", listStyle: "none", gap: 1,
+            flexWrap: "wrap", minHeight: 40, alignItems: "center" }}>
+            {openGroup.items.map((item) => (
+              <li key={item.href}>
+                <Link href={item.href} className="cf-subnav-link"
+                  aria-current={item.isCurrent ? "page" : undefined}>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </nav>
   );
 }
