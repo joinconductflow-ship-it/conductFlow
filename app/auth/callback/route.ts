@@ -90,5 +90,7 @@ export async function GET(request: Request) {
     return redirect("/onboarding?error=workspace_setup_failed");
   }
 
-  return redirect("/queue");
+  // The signed-in home, not the queue: first sign-in lands on the page that explains
+  // what the product does, with the nav above it to go anywhere else.
+  return redirect("/");
 }
