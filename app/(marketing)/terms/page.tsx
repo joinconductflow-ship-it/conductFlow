@@ -55,7 +55,7 @@ export default function Terms() {
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div style={{ ...shell, display: "flex", alignItems: "center",
           justifyContent: "space-between", minHeight: 56, gap: "var(--space-4)" }}>
-          <Link href="/" style={{ fontWeight: 600, fontSize: "var(--text-md)",
+          <Link href="/product" style={{ fontWeight: 600, fontSize: "var(--text-md)",
             letterSpacing: "-0.02em", color: "var(--text)", textDecoration: "none" }}>
             ConductFlow
           </Link>
@@ -233,7 +233,7 @@ export default function Terms() {
         <div style={{ ...shell, paddingBlock: "var(--space-5)", display: "flex",
           justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap",
           alignItems: "baseline" }}>
-          <Link href="/" style={{ fontWeight: 600, fontSize: "var(--text-base)",
+          <Link href="/product" style={{ fontWeight: 600, fontSize: "var(--text-base)",
             color: "var(--text)", textDecoration: "none" }}>
             ConductFlow
           </Link>
