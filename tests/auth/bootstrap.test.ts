@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, vi } from "vitest";
+import { it, expect, beforeAll, vi } from "vitest";
+import { describeWithLocalDb } from "../helpers/local-supabase";
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { bootstrapUser } from "@/lib/auth/bootstrap";
@@ -13,7 +14,7 @@ const seededOrg = "00000000-0000-0000-0000-00000000000a";
 let db: SupabaseClient;
 beforeAll(() => { db = createClient(URL, SERVICE, { auth: { persistSession: false } }); });
 
-describe("bootstrapUser", () => {
+describeWithLocalDb("bootstrapUser", () => {
   it("gives a brand-new user their own org as owner", async () => {
     const id = randomUUID();
     const r = await bootstrapUser(db, { id, termsAccepted: true, email: "ana@example.test", fullName: "Ana Ruiz" });
@@ -80,7 +81,7 @@ describe("bootstrapUser", () => {
 });
 
 // These checks run without a local Supabase instance so consent enforcement remains testable.
-describe("bootstrapUser consent enforcement", () => {
+describeWithLocalDb("bootstrapUser consent enforcement", () => {
   function client(existing: { org_id: string } | null = null) {
     const lookup = vi.fn().mockResolvedValue({ data: existing, error: null });
     const membership = {

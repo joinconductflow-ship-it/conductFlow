@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { it, expect, beforeAll, afterAll } from "vitest";
+import { describeWithLocalDb } from "../helpers/local-supabase";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { MockLanguageModelV4 } from "ai/test";
 import { runIngest } from "@/lib/ingest/run";
@@ -40,7 +41,7 @@ const base = {
   title: "Escalation check", occurredAt: "2026-08-11",
 };
 
-describe("runIngest escalations", () => {
+describeWithLocalDb("runIngest escalations", () => {
   it("raises nothing for a clean conversation", async () => {
     const r = await runIngest(db, {
       ...base, transcript: "Consultant: I'll send the revised deck by Friday.",
@@ -136,7 +137,7 @@ async function nextVersion(floor: number): Promise<number> {
   return Math.max(floor, ((data?.version as number | undefined) ?? 0) + 1);
 }
 
-describe("runIngest honors escalation_conditions", () => {
+describeWithLocalDb("runIngest honors escalation_conditions", () => {
   afterAll(async () => {
     // Blueprints are append-only and this suite never deletes. Restoring at a higher
     // version is how a test puts the org back the way it found it — without this, the

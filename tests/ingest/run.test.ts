@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { it, expect, beforeAll } from "vitest";
+import { describeWithLocalDb } from "../helpers/local-supabase";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { MockLanguageModelV4 } from "ai/test";
 import { runIngest, retryExtractionFor } from "@/lib/ingest/run";
@@ -102,7 +103,7 @@ function pairingMock() {
 let db: SupabaseClient;
 beforeAll(() => { db = createClient(URL, SERVICE, { auth: { persistSession: false } }); });
 
-describe("runIngest", () => {
+describeWithLocalDb("runIngest", () => {
   it("writes commitments, action suggestions, and only the planned Gmail draft", async () => {
     const r = await runIngest(db, args, bothCalls);
     expect(r.commitmentCount).toBe(1);

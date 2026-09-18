@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { it, expect, beforeAll } from "vitest";
+import { describeWithLocalDb } from "../helpers/local-supabase";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { sweepReminders } from "@/lib/reminders/sweep";
 
@@ -32,7 +33,7 @@ async function remindersFor(taskId: string) {
 
 beforeAll(() => { db = createClient(URL, SERVICE, { auth: { persistSession: false } }); });
 
-describe("sweepReminders", () => {
+describeWithLocalDb("sweepReminders", () => {
   it("raises one reminder for a task past its due date", async () => {
     const taskId = await makeTask(overdue);
     await sweepReminders(db, { orgId: orgA, now: NOW });

@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { it, expect, beforeAll, beforeEach } from "vitest";
+import { describeWithLocalDb } from "../helpers/local-supabase";
 import { randomBytes } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -34,7 +35,7 @@ beforeEach(async () => {
   await db.from("connected_data_source").update({ state: "revoked" }).eq("org_id", orgA);
 });
 
-describe("storeGrant", () => {
+describeWithLocalDb("storeGrant", () => {
   it("stores the refresh token sealed, never in the clear", async () => {
     const id = await connect();
     const { data } = await db.from("connected_data_source").select("*").eq("id", id).single();
@@ -59,7 +60,7 @@ describe("storeGrant", () => {
   });
 });
 
-describe("getAccessToken", () => {
+describeWithLocalDb("getAccessToken", () => {
   it("refreshes and returns an access token", async () => {
     await connect();
     const token = await getAccessToken(db, orgA, DRIVE, {

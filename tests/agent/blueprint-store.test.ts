@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { it, expect, beforeAll } from "vitest";
+import { describeWithLocalDb } from "../helpers/local-supabase";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadBlueprint, contractFor, saveBlueprint } from "@/lib/agent/blueprint-store";
 import { DEFAULT_BLUEPRINT } from "@/lib/agent/blueprint";
@@ -31,7 +32,7 @@ async function expectRejectedBeforeTheDatabase(
   expect((await loadBlueprint(db, orgB)).version).toBe(before.version);
 }
 
-describe("loadBlueprint", () => {
+describeWithLocalDb("loadBlueprint", () => {
   it("returns the shipped defaults at version 0 for an org that never edited one", async () => {
     const loaded = await loadBlueprint(db, orgB);
     if (loaded.version === 0) {
@@ -43,7 +44,7 @@ describe("loadBlueprint", () => {
   });
 });
 
-describe("saveBlueprint", () => {
+describeWithLocalDb("saveBlueprint", () => {
   it("appends a new version rather than updating the current one", async () => {
     const before = await loadBlueprint(db, orgB);
     const saved = await saveBlueprint(db, orgB, {
@@ -92,7 +93,7 @@ describe("saveBlueprint", () => {
   });
 });
 
-describe("contractFor", () => {
+describeWithLocalDb("contractFor", () => {
   it("returns a contract whose prohibitions come from code, not the row", async () => {
     const c = await contractFor(db, orgB);
     expect(c.prohibitedActions).toContain("send_external_email");

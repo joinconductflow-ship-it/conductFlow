@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { it, expect } from "vitest";
+import { describeWithLocalDb } from "./helpers/local-supabase";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
 
@@ -17,7 +18,7 @@ function client(token: string) {
   return createClient(URL, ANON, { global: { headers: { Authorization: `Bearer ${token}` } } });
 }
 
-describe("RLS org isolation", () => {
+describeWithLocalDb("RLS org isolation", () => {
   it("positive control: org A owner can read org A commitments", async () => {
     const a = client(await jwt(userA));
     const { data } = await a.from("commitment").select("id").eq("org_id", orgA);
@@ -89,7 +90,7 @@ describe("RLS org isolation", () => {
   });
 });
 
-describe("agent_blueprint is owner-only", () => {
+describeWithLocalDb("agent_blueprint is owner-only", () => {
   // The escalation this phase exists to close: a member rewrites the org's contract
   // through PostgREST, granting the agent an unattended Gmail push.
   it("a member cannot insert a blueprint row", async () => {
@@ -176,7 +177,7 @@ describe("agent_blueprint is owner-only", () => {
   });
 });
 
-describe("audit_event is append-only", () => {
+describeWithLocalDb("audit_event is append-only", () => {
   it("an org member can insert and read audit rows", async () => {
     const a = client(await jwt(userA));
     const { error } = await a.from("audit_event").insert({

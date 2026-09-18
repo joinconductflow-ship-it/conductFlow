@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { it, expect, beforeAll } from "vitest";
+import { describeWithLocalDb } from "../helpers/local-supabase";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { setTaskStatusFor, dismissReminderFor } from "@/lib/tasks/update";
 import { sweepReminders } from "@/lib/reminders/sweep";
@@ -30,7 +31,7 @@ async function commitmentStatus() {
 
 beforeAll(() => { db = createClient(URL, SERVICE, { auth: { persistSession: false } }); });
 
-describe("setTaskStatusFor", () => {
+describeWithLocalDb("setTaskStatusFor", () => {
   it("moves an open task to in progress", async () => {
     const id = await makeTask();
     await setTaskStatusFor(db, { taskId: id, next: "in_progress", userId: ownerA });
@@ -109,7 +110,7 @@ describe("setTaskStatusFor", () => {
   });
 });
 
-describe("dismissReminderFor", () => {
+describeWithLocalDb("dismissReminderFor", () => {
   it("dismisses an open reminder and audits it", async () => {
     const id = await makeTask(new Date(NOW.getTime() - 2 * DAY));
     await sweepReminders(db, { orgId: orgA, now: NOW });
