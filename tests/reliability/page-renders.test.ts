@@ -25,7 +25,7 @@ import Blueprint from "@/app/(app)/settings/blueprint/page";
 import DesktopSettings from "@/app/(app)/settings/desktop/page";
 import DraftReview from "@/app/(app)/queue/[commitmentId]/page";
 import Layout from "@/app/(app)/layout";
-import Onboarding from "@/app/(app)/onboarding/page";
+import Onboarding from "@/app/(auth)/onboarding/page";
 
 vi.mock("@/lib/db/server", () => ({ getServerClient: vi.fn() }));
 // Credential health has its own scoped service-client suite; keep page renders database-free.
@@ -141,7 +141,10 @@ it("covers every page and layout under app/(app)", () => {
   const files = readdirSync(resolve("app/(app)"), { recursive: true })
     .map(String).filter((file) => /(?:^|\/)(page|layout)\.tsx$/.test(file)).sort();
   const covered = [
-    "layout.tsx", "onboarding/page.tsx",
+    "layout.tsx",
+    // The signed-in home renders <Landing signedIn /> and fetches nothing, so there is no
+    // data path for the fault-injection matrix below to break.
+    "page.tsx",
     // Nested layout wraps a client-only CopilotKitProvider; rendering the page here would
     // need that provider mocked for no reliability benefit, so it's excluded rather than
     // faked into the fault-injection matrix below.
@@ -364,7 +367,12 @@ describe("auth and configuration classification", () => {
     expect(queries.filter((query) => query.columns === "role")).toEqual([]);
     expect(html).not.toContain("Save scope");
   });
-  it("keeps onboarding reachable when navigation auth fails", async () => {
+  // Onboarding now lives in (auth), outside this layout. The behaviour is still worth
+  // pinning, and more than before: the layout redirects signed-out visitors to the login,
+  // so a session lookup that *fails* rather than returning "nobody" must fall through to
+  // the notice instead. Otherwise one bad database moment logs out everybody holding a
+  // valid session.
+  it("shows a notice instead of redirecting when navigation auth fails", async () => {
     auth.mockRejectedValue(new Error("auth offline"));
     const onboarding = await Onboarding({ searchParams: Promise.resolve({}) });
     const html = renderToStaticMarkup(await Layout({ children: onboarding }));
