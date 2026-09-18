@@ -13,6 +13,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // States once whether the local stack is up, so a run full of skipped integration
+    // suites explains itself instead of just reporting a count.
+    globalSetup: ["tests/helpers/global-setup.ts"],
     // Defaults for `supabase start`. These are the published local-dev demo keys,
     // identical on every machine — not secrets. Override to target another stack.
     env: {
