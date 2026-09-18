@@ -60,4 +60,36 @@ describe("(app) layout auth gate", () => {
     expect(html).toContain("Protected content");
     expect(html).toContain("temporarily unavailable");
   });
+
+  /*
+   * The composition, which neither the layout test nor the Landing test covers on its own:
+   * the signed-in home is the landing content rendered *inside* the app shell. This is the
+   * thing a browser would show and that no local sign-in is available to check, so it is
+   * pinned here instead.
+   */
+  it("renders the landing content under the app nav at /", async () => {
+    getCurrentUser.mockResolvedValue({ email: "owner@example.test" });
+    const html = renderToStaticMarkup(await AppLayout({ children: HomePage() }));
+
+    expect(html).toContain("owner@example.test");
+    expect(html).toContain("AI orchestration");
+    expect(html).toContain('href="/queue"');
+
+    // The whole point of the signed-in mode: no sign-in affordance survives.
+    expect(html).not.toContain('href="/onboarding"');
+    expect(html).not.toContain(">Sign in<");
+  });
+
+  /*
+   * The landing content carries its own <header> with the brand, the section anchors and
+   * an account link, written for a page with nothing above it. Signed in, the app nav is
+   * above it and carries all three, so rendering both printed "ConductFlow" twice within
+   * 30px and gave the page two rows of chrome before any content. Only one survives.
+   */
+  it("shows one set of chrome, not the landing header stacked under the app nav", async () => {
+    getCurrentUser.mockResolvedValue({ email: "owner@example.test" });
+    const html = renderToStaticMarkup(await AppLayout({ children: HomePage() }));
+    expect(html).not.toContain("<header");
+    expect((html.match(/<nav/g) ?? []).length).toBe(1);
+  });
 });

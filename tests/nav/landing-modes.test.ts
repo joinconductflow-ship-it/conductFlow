@@ -11,6 +11,8 @@ describe("Landing", () => {
     const markup = html(false);
     expect(markup).toContain(">Sign in<");
     expect(markup).toContain('href="/onboarding"');
+    // Signed out there is no app nav, so this header is the page's only chrome.
+    expect(markup).toContain("<header");
   });
 
   /*

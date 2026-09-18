@@ -95,27 +95,36 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
       {/* Same affordance the signed-in app gives a keyboard user, for the same reason. */}
       <a href="#main" className="skip-link">Skip to content</a>
 
-      <header style={{ borderBottom: "1px solid var(--border)" }}>
-        <div style={{ ...shell, display: "flex", alignItems: "center",
-          justifyContent: "space-between", minHeight: 56, gap: "var(--space-4)" }}>
-          <Link href={signedIn ? "/" : "/product"} aria-label="ConductFlow home" className="marketing-brand">
-            <span className="marketing-logo-frame">
-              <Image src="/ConductFlowLogo.png" alt="" width={32} height={32}
-                priority className="marketing-logo" />
-            </span>
-            <span>ConductFlow</span>
-          </Link>
-          <nav className="marketing-header-nav" aria-label="Homepage sections">
-            <a href="#product">Product</a>
-            <a href="#product">How it works</a>
-            <a href="#principles">Principles</a>
-            <a href="#desktop">Mac app</a>
-          </nav>
-          {signedIn
-            ? <Link href="/queue" style={{ fontSize: "var(--text-base)" }}>Go to queue</Link>
-            : <Link href="/onboarding" style={{ fontSize: "var(--text-base)" }}>Sign in</Link>}
-        </div>
-      </header>
+      {/*
+        Signed out this is the page's only chrome. Signed in, the app nav sits directly
+        above it carrying the same brand, the same destinations and the account menu, so
+        rendering both stacks two headers and prints "ConductFlow" twice within 30px.
+        The section anchors go with it: they point at content on this page, which the
+        reader is already looking at.
+      */}
+      {!signedIn && (
+        <header style={{ borderBottom: "1px solid var(--border)" }}>
+          <div style={{ ...shell, display: "flex", alignItems: "center",
+            justifyContent: "space-between", minHeight: 56, gap: "var(--space-4)" }}>
+            <Link href={signedIn ? "/" : "/product"} aria-label="ConductFlow home" className="marketing-brand">
+              <span className="marketing-logo-frame">
+                <Image src="/ConductFlowLogo.png" alt="" width={32} height={32}
+                  priority className="marketing-logo" />
+              </span>
+              <span>ConductFlow</span>
+            </Link>
+            <nav className="marketing-header-nav" aria-label="Homepage sections">
+              <a href="#product">Product</a>
+              <a href="#product">How it works</a>
+              <a href="#principles">Principles</a>
+              <a href="#desktop">Mac app</a>
+            </nav>
+            {signedIn
+              ? <Link href="/queue" style={{ fontSize: "var(--text-base)" }}>Go to queue</Link>
+              : <Link href="/onboarding" style={{ fontSize: "var(--text-base)" }}>Sign in</Link>}
+          </div>
+        </header>
+      )}
 
       <main id="main" tabIndex={-1} style={{ outline: "none" }}>
         <section className="marketing-hero" style={{ ...shell, maxWidth: 1400,
