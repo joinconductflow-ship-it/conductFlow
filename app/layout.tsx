@@ -23,7 +23,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "ConductFlow",
-    url: SITE,
+    // The pitch, not the root: "/" redirects anonymous visitors to the login, and a
+    // social card whose link resolves to a sign-in form sells nothing.
+    url: `${SITE}/product`,
     title: "You said you'd send it by Friday.",
     description:
       "ConductFlow finds the promises in your client calls and drafts the follow-ups. Nothing sends without you.",
