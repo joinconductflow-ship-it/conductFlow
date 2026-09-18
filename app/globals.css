@@ -1330,10 +1330,42 @@ select:hover:not(:disabled):not(:focus) {
   border-radius: var(--radius-pill);
   background: var(--accent);
 }
-.cf-nav-more-current {
-  background: var(--accent-quiet) !important;
-  color: var(--accent-text) !important;
-  box-shadow: inset 0 0 0 1px var(--accent-line);
+/*
+ * The second row, carrying the current group's destinations.
+ *
+ * It reads as subordinate to the tabs above rather than as a second tab bar: smaller type,
+ * no pill, and the current item marked with weight and an underline instead of a fill. Two
+ * filled pills stacked would compete to look like the primary one, and the reader would
+ * have to work out which of them says where they are.
+ */
+.cf-subnav {
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+.cf-subnav-link {
+  display: block;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  position: relative;
+  transition: background var(--motion), color var(--motion);
+}
+.cf-subnav-link:hover { background: var(--surface-hover); color: var(--text); }
+.cf-subnav-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+}
+.cf-subnav-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
 }
 
 .cf-page-header {
