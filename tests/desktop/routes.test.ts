@@ -232,6 +232,16 @@ describe("POST /api/desktop/execute", () => {
     }))).json();
 
     expect(payload.conversationId).toBe("c");
-    expect(payload.calendarError).toMatch(/calendar unavailable/);
+
+    /*
+     * The response carries a safe message, not the database's. This assertion used to
+     * match /calendar unavailable/ and broke when the route was hardened to stop echoing
+     * driver text to callers: the cause goes to logFailure, the caller gets a sentence
+     * that says what happened to their work. Both halves matter, so both are checked --
+     * the second line is the one that fails if the raw cause starts leaking again.
+     */
+    expect(payload.calendarError).toBe(
+      "The scheduled session could not be saved. The conversation was still queued.");
+    expect(JSON.stringify(payload)).not.toContain("calendar unavailable");
   });
 });

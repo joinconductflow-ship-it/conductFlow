@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { it, expect, beforeAll } from "vitest";
+import { describeWithLocalDb } from "../helpers/local-supabase";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { MockLanguageModelV4 } from "ai/test";
 import { regenerateDraftFor } from "@/lib/drafts/regenerate";
@@ -50,12 +51,16 @@ async function draftsFor(commitmentId: string) {
   return data ?? [];
 }
 
-beforeAll(async () => {
-  db = createClient(URL, SERVICE, { auth: { persistSession: false } });
-  withoutDraft = await makeUndraftedCommitment();
-});
+describeWithLocalDb("regenerateDraftFor", () => {
+  // Inside the suite, not beside it. A file-level beforeAll runs even when the suite it
+  // serves is skipped, so this one still opened a client and wrote a row with no database
+  // there to take it: the tests reported "skipped" and the file reported "fetch failed"
+  // in the same breath.
+  beforeAll(async () => {
+    db = createClient(URL, SERVICE, { auth: { persistSession: false } });
+    withoutDraft = await makeUndraftedCommitment();
+  });
 
-describe("regenerateDraftFor", () => {
   it("writes a draft for a commitment that has none", async () => {
     const r = await regenerateDraftFor(db, { commitmentId: withoutDraft }, model);
     expect(r.replaced).toBe(false);

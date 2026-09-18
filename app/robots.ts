@@ -15,8 +15,11 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/privacy"],
+      allow: ["/product", "/privacy", "/terms"],
       disallow: [
+        // "/" is the signed-in home now, not the pitch; anonymous traffic there is
+        // redirected to the login, so there is nothing at it worth indexing.
+        "/$",
         "/api/",
         "/auth/",
         "/onboarding",

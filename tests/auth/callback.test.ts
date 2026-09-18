@@ -38,7 +38,7 @@ describe("GET /auth/callback", () => {
     state.bootstrap.mockResolvedValue({ orgId: "org-1", created: true });
   });
 
-  it("persists the exchanged session before redirecting a successful login to /queue", async () => {
+  it("persists the exchanged session before redirecting a successful login home", async () => {
     state.consent = true;
     state.exchange.mockImplementation(async () => {
       state.adapter?.setAll([{
@@ -48,7 +48,8 @@ describe("GET /auth/callback", () => {
     });
 
     const response = await GET(new Request("https://app.example/auth/callback?code=abc"));
-    expect(response.headers.get("location")).toBe("https://app.example/queue");
+    // "/" is the signed-in home; the nav there reaches the queue and everywhere else.
+    expect(response.headers.get("location")).toBe("https://app.example/");
     expect(response.headers.get("set-cookie")).toContain("sb-project-auth-token=session-value");
     expect(state.bootstrap).toHaveBeenCalledWith({}, expect.objectContaining({ id: "user-1", termsAccepted: true }));
   });
